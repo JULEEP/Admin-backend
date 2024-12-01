@@ -29,6 +29,18 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
     },
+    cart: [
+      {
+        product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' }, // Reference to Product
+        quantity: { type: Number, default: 1 }, // Quantity of the product
+      },
+    ],
+    wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+    orders: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
+    shippingAddress: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ShippingAddress'
+    },
   },
   {
     timestamps: true,

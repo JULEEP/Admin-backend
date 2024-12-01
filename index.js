@@ -3,6 +3,7 @@ require('dotenv').config();
 const app = express();
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 
 const productRoutes = require('./routes/productRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -11,46 +12,55 @@ const orderRoutes = require('./routes/orderRoutes');
 const userOrderRoutes = require('./routes/userOrderRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const couponRoutes = require('./routes/couponRoutes');
-const staffRoutes = require('./routes/staffRoutes.js')
+const staffRoutes = require('./routes/staffRoutes');
 const { isAuth, isAdmin } = require('./config/auth');
 const connectDatabase = require('./db/connectDatabase.js');
 
+// Connect to the database
 connectDatabase();
 
-// We are using this for the express-rate-limit middleware
-// See: https://github.com/nfriedly/express-rate-limit
-// app.enable('trust proxy');
-app.set('trust proxy', 1);
-app.use((err, req, res, next) => {
-  if (res.headersSent) return next(err);
-  res.status(400).json({ message: err.message });
-});
-app.use(express.json());
+// Middleware
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+  })
+);
+app.use(express.json());
 
-//root route
+// Serve static uploads folder with CORS headers
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+    },
+  })
+);
+
+// Root route
 app.get('/', (req, res) => {
   res.send('App works properly!');
 });
 
-//this for route will need for store front, also for admin dashboard
+// Routes
 app.use('/api/products/', productRoutes);
 app.use('/api/category/', categoryRoutes);
 app.use('/api/coupon/', couponRoutes);
-app.use('/api/user/', userRoutes);
+app.use('/api/users/', userRoutes);
 app.use('/api/order/', userOrderRoutes);
-
-//if you not use admin dashboard then these two route will not needed.
 app.use('/api/admin/', adminRoutes);
 app.use('/api/orders/', orderRoutes);
 app.use('/api/staff/', staffRoutes);
 
+// Error handler
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  res.status(400).json({ message: err.message });
+});
 
-// Use express's default error handling middleware
-
+// Start the server
 const PORT = process.env.PORT || 5000;
-
-// app.listen(PORT, () => console.log(`server running on port ${PORT}`));
-
 app.listen(PORT, () => console.log(`server running on port ${PORT}`));

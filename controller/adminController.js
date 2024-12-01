@@ -19,6 +19,7 @@ const registerAdmin = async (req, res) => {
         email: req.body.email,
         role: req.body.role,
         password: bcrypt.hashSync(req.body.password),
+        role: req.body.role
       });
       const staff = await newStaff.save();
       const token = signInToken(staff);

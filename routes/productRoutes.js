@@ -12,23 +12,23 @@ const {
   updateProduct,
   updateStatus,
   deleteProduct,
+  getSimilarProducts
 } = require('../controller/productController');
 const multer = require('multer');
 
-// Set storage engine
+// Set up multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Folder where you want to save the images
+    cb(null, 'uploads/'); // Folder to save uploaded files
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+    cb(null, Date.now() + '-' + file.originalname); // Unique filename
+  },
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
-
-//add a product
-router.post('/add', upload.array('images', 10),  addProduct);
+// Routes
+router.post('/add', upload.array('images', 10), addProduct);
 
 //add multiple products
 router.post('/all', addAllProducts);
@@ -59,5 +59,7 @@ router.put('/status/:id', updateStatus);
 
 //delete a product
 router.delete('/delete-product/:id', deleteProduct);
+router.get('/products/similar', getSimilarProducts);
+
 
 module.exports = router;

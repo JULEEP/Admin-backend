@@ -12,6 +12,8 @@ const {
   getUserById,
   updateUser,
   deleteUser,
+  userCart,
+  getCart
 } = require('../controller/userController');
 const {
   passwordVerificationLimit,
@@ -50,5 +52,9 @@ router.put('/:id', updateUser);
 
 //delete a user
 router.delete('/:id', deleteUser);
+router.post("/cart/:userId", userCart)
+router.get("/getcart/:userId", getCart)
+
+
 
 module.exports = router;

@@ -3,9 +3,9 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });  // Save images in an 'uploads' directory
 
 
+// Add Product
 const addProduct = async (req, res) => {
   try {
-    // Create a new product instance using the request body
     const newProduct = new Product({
       name: req.body.name || '',
       category: req.body.category || '',
@@ -13,38 +13,31 @@ const addProduct = async (req, res) => {
       description: req.body.description || '',
       size: req.body.size || '',
       color: req.body.color || '',
-      moq: req.body.moq || 0,  // Default to 0 if not provided
-      originalPrice: req.body.originalPrice || 0,  // Default to 0 if not provided
-      discountedPrice: req.body.discountedPrice || 0,  // Default to 0 if not provided
-      type: req.body.type || '',  // Default to empty string if not provided
-      quantity: req.body.quantity || 0,  // Default to 0 if not provided
-      children: req.body.children || '',  // Default to empty string if not provided
-      parent: req.body.parent || '',  // Default to empty string if not provided
-      unit: req.body.unit || '',  // Default to empty string if not provided
-      images: []  // Initialize as an empty array
+      moq: req.body.moq || 0,
+      originalPrice: req.body.originalPrice || 0,
+      discountedPrice: req.body.discountedPrice || 0,
+      type: req.body.type || '',
+      quantity: req.body.quantity || 0,
+      unit: req.body.unit || '',
+      parent: req.body.parent || '',
+      children: req.body.children || '',
+      images: req.body.images,
     });
 
-    // Handle image file paths if images are provided
-    if (req.files && req.files.length > 0) {
-      newProduct.images = req.files.map(file => file.path);
-    }
+    // Handle file uploads
+    // if (req.files && req.files.length > 0) {
+    //   newProduct.images = req.files.map(file => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
+    // }
 
-    // Save the new product to the database
+    // Save product to the database
     await newProduct.save();
 
-    // Send a success response
-    res.status(200).send({
-      message: 'Product Added Successfully!',
-      newProduct
+    res.status(200).json({
+      message: 'Product added successfully!',
+      newProduct,
     });
-
-    console.log(newProduct);  // Log the new product for debugging
-
   } catch (err) {
-    // Send an error response in case of failure
-    res.status(500).send({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -198,6 +191,46 @@ const deleteProduct = (req, res) => {
   });
 };
 
+const getSimilarProducts = async (req, res) => {
+  try {
+    const { filterBy } = req.query;  // Get the filter type (price or name) from the query string
+    const { value } = req.body;  // Get the value to filter by (either price or name)
+
+    // Check if the 'value' and 'filterBy' parameters are provided
+    if (!value || !filterBy) {
+      return res.status(400).send({ message: "Both 'value' and 'filterBy' are required" });
+    }
+
+    let query = {};
+
+    // Define the filter condition based on filterBy parameter
+    if (filterBy === 'price') {
+      query = { originalPrice: value };  // Find products with the same originalPrice
+    } else if (filterBy === 'name') {
+      query = { name: { $regex: value, $options: 'i' } };  // Find products with similar name
+    } else {
+      return res.status(400).send({ message: "Invalid filter. Use 'price' or 'name'" });
+    }
+
+    // Find similar products based on the query
+    const similarProducts = await Product.find(query).sort({ _id: -1 });
+
+    // If no similar products are found
+    if (similarProducts.length === 0) {
+      return res.status(404).send({ message: "No similar products found" });
+    }
+
+    // Return the list of similar products
+    res.status(200).json(similarProducts);
+
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+
 module.exports = {
   addProduct,
   addAllProducts,
@@ -210,4 +243,5 @@ module.exports = {
   updateProduct,
   updateStatus,
   deleteProduct,
+  getSimilarProducts
 };
