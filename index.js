@@ -21,13 +21,16 @@ connectDatabase();
 
 // Middleware
 app.use(helmet());
-app.use(
-  cors({
-    origin: 'http://localhost:3000',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-  })
-);
+const allowedOrigins = ['http://localhost:3000', 'https://e-custome.vercel.app']; // Add all allowed origins here
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 app.use(express.json());
 
 // Serve static uploads folder with CORS headers
