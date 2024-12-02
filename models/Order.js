@@ -92,7 +92,7 @@ const orderSchema = new mongoose.Schema({
   orderStatus: {
     type: String,
     default: "Not Processed",
-    enum: ["Processing", "Refund request", "Confirmed",  "Return Requested", "Cancelled", "Refund Success", "Shipped", "Placed", "Not Processed", "Pending", "Scheduled", "Unshipped", "Transferred to delivery partner", "Received", "Delivered", "Cancel request", "Out for Delivery", "Shipping", "Processing Refund"],
+    enum: ["Processing", "Refund request", "Confirmed",  "Return Requested", "Cancelled", "CancelledRequest",  "Refund Success", "Shipped", "Placed", "Not Processed", "Pending", "Scheduled", "Unshipped", "Transferred to delivery partner", "Received", "Delivered", "Cancel request", "Out for Delivery", "Shipping", "Processing Refund"],
   },
   orderStatusHistory: [{
     status: String,

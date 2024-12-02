@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { signInToken, tokenForVerify, sendEmail } = require('../config/auth');
 const Cart = require('../models/Cart')
 const Product = require('../models/Product')
+const ShippingAddress = require('../models/ShippingAddress') 
 const mongoose = require('mongoose')
 const verifyEmailAddress = async (req, res) => {
   const isAdded = await User.findOne({ email: req.body.email });
@@ -481,6 +482,167 @@ const getCart = (async (req, res) => {
   }
 });
 
+//delete cart
+const deleteCartItem = (async (req, res) => {
+  try {
+      const { userId } = req.params;
+      const { productId } = req.body;
+
+      // Validate userId and productId
+      if (!userId || !productId) {
+          return res.status(400).json({ status: false, message: "Invalid userId or productId" });
+      }
+
+      // Find the user and cart
+      const user = await User.findById(userId);
+      const cart = await Cart.findOne({ userId });
+
+      if (!user || !cart) {
+          return res.status(404).json({ status: false, message: "User or cart not found" });
+      }
+
+      // Remove the product from the cart
+      const productIndex = cart.products.findIndex(item => item.product && item.product.toString() === productId);
+      
+      if (productIndex === -1) {
+          return res.status(404).json({ status: false, message: "Product not found in cart" });
+      }
+
+      // Remove the product from cart and recalculate the cart total
+      cart.products.splice(productIndex, 1);
+
+      // Calculate the new cart total and subTotal
+      let cartTotal = 0;
+      cart.products.forEach(item => {
+          if (item.product && item.quantity) {
+              const quantity = item.quantity;
+              const price = item.product.price || 0;
+              cartTotal += quantity * price;
+          }
+      });
+
+      cart.cartTotal = cartTotal;
+      cart.subTotal = cartTotal;
+
+      // Save the updated cart
+      await cart.save();
+
+      // Return a success response
+      res.status(200).json({
+          status: true,
+          message: "Product removed from cart successfully",
+          cart,
+      });
+  } catch (error) {
+      console.error("Error in deleteCartItem:", error);
+      res.status(500).json({ status: false, message: "Internal server error" });
+  }
+});
+
+const getShippingAddress = (async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const shippingAddress = await ShippingAddress.findOne({ userId });
+    if (!shippingAddress) {
+      return res.status(404).json({ status: false, message: "Shipping address not found" });
+    }
+    res.status(200).json({ status: true, message: "Shipping address retrieved successfully", shippingAddress });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ status: false, message: "Internal Server Error" });
+  }
+});
+
+
+const addToWishlist = async (req, res) => {
+  const { userId } = req.params; // User ID from URL params
+  const { productId } = req.body; // Product ID from the request body
+
+  try {
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    // Check if the product is already in the wishlist
+    const alreadyAdded = user.wishlist.includes(productId);
+
+    if (alreadyAdded) {
+      // If the product is already in the wishlist, remove it and set isInWishlist to false
+      await User.findByIdAndUpdate(
+        userId,
+        { $pull: { wishlist: productId } }, // Remove product from user's wishlist
+        { new: true }
+      );
+
+      await Product.findByIdAndUpdate(
+        productId,
+        { isInWishlist: false }, // Set product's isInWishlist to false
+        { new: true }
+      );
+
+      // Return response for removed product
+      return res.status(200).json({
+        status: true,
+        message: "Product removed from wishlist",
+        isInWishlist: false,
+      });
+    } else {
+      // If the product is not in the wishlist, add it and set isInWishlist to true
+      await User.findByIdAndUpdate(
+        userId,
+        { $push: { wishlist: productId } }, // Add product to user's wishlist
+        { new: true }
+      );
+
+      await Product.findByIdAndUpdate(
+        productId,
+        { isInWishlist: true }, // Set product's isInWishlist to true
+        { new: true }
+      );
+
+      // Return response for added product
+      return res.status(200).json({
+        status: true,
+        message: "Product added to wishlist",
+        isInWishlist: true,
+      });
+    }
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: false, message: 'Internal Server Error' });
+  }
+};
+
+
+//get wishllist
+const getWishlist = (async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+      // Find user by ID and populate wishlist with product details
+      const user = await User.findById(userId)
+          .populate({
+              path: 'wishlist',
+              select: 'title  name originalPrice description images category', // Specify the fields to populate
+          });
+
+      // Check if user exists
+      if (!user) {
+          return res.status(404).json({ message: "User not found" });
+      }
+
+      // Respond with the user's wishlist
+      res.json({ message: "Your wishlist is here", wishlist: user.wishlist });
+  } catch (error) {
+      console.error('Error:', error);
+      res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
 
 
 
@@ -498,5 +660,9 @@ module.exports = {
   updateUser,
   deleteUser,
   userCart,
-  getCart
+  getCart,
+  deleteCartItem,
+  getShippingAddress,
+  addToWishlist,
+  getWishlist
 };

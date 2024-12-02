@@ -13,7 +13,11 @@ const {
   updateUser,
   deleteUser,
   userCart,
-  getCart
+  getCart,
+  deleteCartItem,
+  getShippingAddress,
+  addToWishlist,
+  getWishlist
 } = require('../controller/userController');
 const {
   passwordVerificationLimit,
@@ -54,6 +58,13 @@ router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
 router.post("/cart/:userId", userCart)
 router.get("/getcart/:userId", getCart)
+router.delete('/delete-cart/:userId', deleteCartItem);
+router.get('/get-shipping-address/:userId', getShippingAddress);
+router.post('/wishlist/:userId', addToWishlist)
+router.get("/get-wishlist/:userId", getWishlist);
+
+
+
 
 
 
