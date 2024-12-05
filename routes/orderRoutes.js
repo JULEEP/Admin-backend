@@ -9,7 +9,9 @@ const {
   deleteOrder,
   getUserOrder,
   cancelOrderFromUser,
-  invoiceDownload
+  invoiceDownload,
+  getOrderStatus,
+  updateOrderStatus
 } = require('../controller/orderController');
 
 //get all orders
@@ -30,6 +32,8 @@ router.put('/:id', updateOrder);
 router.delete('/delete-order/:userId', deleteOrder)
 router.put('/cancel-order-by-user/:userId', cancelOrderFromUser)
 router.get('/download-invoice/:userId/:orderId', invoiceDownload)
+router.get('/orderStatus/:id', getOrderById);
+router.put('/updateOrderStatus/:id', updateOrderStatus);
 
 
 

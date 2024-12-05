@@ -49,10 +49,10 @@ router.post('/change-password', changePassword);
 router.get('/', getAllUsers);
 
 //get a user
-router.get('/:id', getUserById);
+router.get('/:userId', getUserById);
 
 //update a user
-router.put('/:id', updateUser);
+router.put('/update-user/:userId', updateUser);
 
 //delete a user
 router.delete('/:id', deleteUser);

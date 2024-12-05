@@ -91,13 +91,39 @@ const orderSchema = new mongoose.Schema({
   },
   orderStatus: {
     type: String,
-    default: "Not Processed",
-    enum: ["Processing", "Refund request", "Confirmed",  "Return Requested", "Cancelled", "CancelledRequest",  "Refund Success", "Shipped", "Placed", "Not Processed", "Pending", "Scheduled", "Unshipped", "Transferred to delivery partner", "Received", "Delivered", "Cancel request", "Out for Delivery", "Shipping", "Processing Refund"],
+    default: "Not Processed",  // Default status
+    enum: [
+      "Draft", 
+      "Payment Pending", 
+      "Payment Confirmed", 
+      "Order Confirmed", 
+      "Print Ready", 
+      "Shipped", 
+      "Delivered", 
+      "Processing", 
+      "Refund request", 
+      "Confirmed", 
+      "Return Requested", 
+      "Cancelled", 
+      "CancelledRequest", 
+      "Refund Success", 
+      "Placed", 
+      "Not Processed", 
+      "Pending", 
+      "Scheduled", 
+      "Unshipped", 
+      "Transferred to delivery partner", 
+      "Received", 
+      "Cancel request", 
+      "Out for Delivery", 
+      "Shipping", 
+      "Processing Refund"
+    ],  // Enum of possible statuses
   },
-  orderStatusHistory: [{
-    status: String,
-    timestamp: { type: Date, default: Date.now }
-  }],
+  orderStatusHistory: {
+    type: [String],  // Store status as string, not ObjectId
+    default: [],
+  },
   cancellationReason: {
     type: String,
     enum: ['NoInventory', 'buyerCancelled', 'generalAdjustment', 'undeliverableShippingAddress', 'customerExchange', 'pricingError'],
@@ -151,10 +177,6 @@ const orderSchema = new mongoose.Schema({
   deliveredAt: {
     type: Date
   },
-  orderStatusHistory: [{
-    status: String,
-    timestamp: { type: Date, default: Date.now }
-  }],
   reason: String,
   comments: String,
   statusField: String,
@@ -163,8 +185,8 @@ const orderSchema = new mongoose.Schema({
   sessionId: String, // Add sessionId field
   isReturned: { type: Boolean, default: false },
   returnReason: {
-      type: String,
-      enum: ['Wrong Item', 'Damaged Item', 'Incorrect Size/Color', 'Not Satisfied', 'Other'],
+    type: String,
+    enum: ['Wrong Item', 'Damaged Item', 'Incorrect Size/Color', 'Not Satisfied', 'Other'],
   },
   returnPhotos: [String], // Array of URLs or paths to photos
   returnVideos: [String], // Array of URLs or paths to videos
@@ -239,4 +261,4 @@ const orderSchema = new mongoose.Schema({
 
 
 const Order = mongoose.model("Order", orderSchema);
-module.exports =  Order;
+module.exports = Order;

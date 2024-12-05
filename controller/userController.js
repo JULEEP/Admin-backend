@@ -246,8 +246,15 @@ const getAllUsers = async (req, res) => {
 
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    res.send(user);
+    // Find the user by ID and select only specific fields
+    const user = await User.findById(req.params.userId)
+      .select('fullName email phoneNumber Status');  // Select only these fields
+
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+
+    res.send(user);  // Send the user data with the selected fields
   } catch (err) {
     res.status(500).send({
       message: err.message,
@@ -255,25 +262,24 @@ const getUserById = async (req, res) => {
   }
 };
 
+
 const updateUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.userId);
     if (user) {
-      user.name = req.body.name;
+      user.fullName = req.body.fullName;
       user.email = req.body.email;
       user.address = req.body.address;
       user.phone = req.body.phone;
-      user.image = req.body.image;
       const updatedUser = await user.save();
       const token = signInToken(updatedUser);
       res.send({
         token,
         _id: updatedUser._id,
-        name: updatedUser.name,
+        fullName: updatedUser.fullName,
         email: updatedUser.email,
         address: updatedUser.address,
         phone: updatedUser.phone,
-        image: updatedUser.image,
       });
     }
   } catch (err) {

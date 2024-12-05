@@ -4,6 +4,7 @@ const Product = require('../models/Product')
 const Cart = require('../models/Cart')
 const ShippingAddress = require('../models/ShippingAddress')
 const PDFDocument = require('pdfkit');  // Import PDFKit
+const mongoose = require('mongoose')
 
 
 
@@ -145,12 +146,30 @@ const getOrderByUser = async (req, res) => {
 };
 
 const getOrderById = async (req, res) => {
+  const { id } = req.params;
+
+  // Validate if id is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid orderId format' });
+  }
+
   try {
-    const order = await Order.findById(req.params.id);
-    res.send(order);
+    // Find the order by _id (id is the MongoDB ObjectId)
+    const order = await Order.findById(id);
+
+    // If order not found
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Send only the orderStatus as response
+    res.status(200).json({
+      orderStatusHistory: order.orderStatusHistory,  // Only send orderStatus
+    });
+
   } catch (err) {
     res.status(500).send({
-      message: err.message,
+      message: err.message,  // Error handling
     });
   }
 };
@@ -456,6 +475,80 @@ const invoiceDownload = async (req, res) => {
   }
 };
 
+// Controller to get the status of an order by orderId
+const getOrderStatus = async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    // Find order by _id (orderId will be same as _id in MongoDB)
+    const order = await Order.findOne({ _id: orderId }).lean(); // use .lean() to get a plain object
+
+    // If order not found
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Send orderStatus as response
+    res.status(200).json({
+      orderId: order.orderId,  // Access plain object properties
+      orderStatus: order.orderStatus,  // Fetching only orderStatus
+    });
+
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,  // Error handling
+    });
+  }
+};
+
+
+const updateOrderStatus = async (req, res) => {
+  const { id } = req.params;  // Get orderId from params
+  const { newStatus } = req.body;  // Get new status from request body
+
+  // Validate if id is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid orderId format' });
+  }
+
+  try {
+    // Use await to ensure the order is retrieved properly
+    const order = await Order.findById(id);
+
+    // If order not found
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Initialize orderStatusHistory if it's not already an array
+    if (!order.orderStatusHistory) {
+      order.orderStatusHistory = [];
+    }
+
+    // Save the current status in the history before updating it
+    const previousStatus = order.orderStatus;
+
+    // Update the order's orderStatus and push previous status to orderStatusHistory
+    order.orderStatus = newStatus;
+    order.orderStatusHistory.push(previousStatus);  // Store status as string
+
+    // Save the updated order
+    await order.save();
+
+    // Respond with the updated order details
+    res.status(200).json({
+      message: 'Order status updated successfully',
+      orderId: order.orderId,
+      orderStatus: order.orderStatus,
+      orderStatusHistory: order.orderStatusHistory,
+    });
+
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
 
 module.exports = {
   createOrder,
@@ -466,5 +559,7 @@ module.exports = {
   deleteOrder,
   getUserOrder,
   cancelOrderFromUser,
-  invoiceDownload
+  invoiceDownload,
+  getOrderStatus,
+  updateOrderStatus
 };
