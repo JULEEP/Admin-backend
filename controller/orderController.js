@@ -145,6 +145,44 @@ const getAllOrders = async (req, res) => {
       filter.orderType = orderType;
     }
 
+    // Get today's date and the first date of the current month
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // First day of this month
+
+    // Filter for total orders this month
+    const ordersThisMonth = await Order.find({
+      ...filter,
+      createdAt: { $gte: firstDayOfMonth } // Orders created after the 1st of the current month
+    });
+
+    // Filter for total orders today
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0)); // Start of today (midnight)
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999)); // End of today (just before midnight of the next day)
+
+    const ordersToday = await Order.find({
+      ...filter,
+      createdAt: { $gte: startOfDay, $lte: endOfDay } // Orders created today
+    });
+
+    // Filter for total orders (no date restrictions)
+    const totalOrders = await Order.find(filter); // All orders based on other filters (if any)
+
+    // Filter orders by different statuses
+    const printReadyOrders = await Order.find({
+      ...filter,
+      orderStatus: 'Print Ready'
+    });
+
+    const paymentConfirmedOrders = await Order.find({
+      ...filter,
+      orderStatus: 'Payment Confirmed'
+    });
+
+    const paymentPendingOrders = await Order.find({
+      ...filter,
+      orderStatus: 'Payment Pending'
+    });
+
     // If 'recent' is provided, sort by the most recent orders
     const ordersQuery = Order.find(filter).sort({ _id: -1 }); // Default to descending order for recent
 
@@ -156,14 +194,23 @@ const getAllOrders = async (req, res) => {
     // Get the filtered orders from the database
     const orders = await ordersQuery;
 
-    // Return the results
-    res.send(orders);
+    // Return the results with the additional counts
+    res.json({
+      totalOrders: totalOrders.length,  // Total number of orders
+      totalOrdersThisMonth: ordersThisMonth.length,  // Orders this month
+      totalOrdersToday: ordersToday.length,  // Orders today
+      printReadyOrdersCount: printReadyOrders.length,  // Orders with Print Ready status
+      paymentConfirmedOrdersCount: paymentConfirmedOrders.length,  // Orders with Payment Confirmed status
+      paymentPendingOrdersCount: paymentPendingOrders.length,  // Orders with Payment Pending status
+      orders: orders, // You can return the filtered orders if needed
+    });
   } catch (err) {
     res.status(500).send({
       message: err.message,
     });
   }
 };
+
 
 
 const getOrderByUser = async (req, res) => {
