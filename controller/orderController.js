@@ -125,7 +125,38 @@ const createOrder = (async (req, res, next) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find({}).sort({ _id: -1 });
+    const { orderId, productId, orderType, recent } = req.query;
+
+    // Build the filter object based on the provided query parameters
+    const filter = {};
+
+    // If orderId is provided, filter by orderId
+    if (orderId) {
+      filter._id = orderId;
+    }
+
+    // If productId is provided, filter by productId (assumes productId is part of the order schema)
+    if (productId) {
+      filter['products.productId'] = productId; // Assuming products is an array of objects with productId
+    }
+
+    // If orderType is provided, filter by orderType
+    if (orderType) {
+      filter.orderType = orderType;
+    }
+
+    // If 'recent' is provided, sort by the most recent orders
+    const ordersQuery = Order.find(filter).sort({ _id: -1 }); // Default to descending order for recent
+
+    // If the 'recent' query parameter is set to 'true', we can limit results to recent orders
+    if (recent === 'true') {
+      ordersQuery.limit(10);  // Example: get only the 10 most recent orders
+    }
+
+    // Get the filtered orders from the database
+    const orders = await ordersQuery;
+
+    // Return the results
     res.send(orders);
   } catch (err) {
     res.status(500).send({
@@ -133,6 +164,7 @@ const getAllOrders = async (req, res) => {
     });
   }
 };
+
 
 const getOrderByUser = async (req, res) => {
   try {

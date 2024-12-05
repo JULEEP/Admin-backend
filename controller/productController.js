@@ -44,10 +44,68 @@ const addProduct = async (req, res) => {
 
 const addAllProducts = async (req, res) => {
   try {
+    const { body, query } = req;
+
+    // Filter products based on required fields (e.g., name, price, category)
+    const filteredProducts = body.filter(product => {
+      // Ensure the product has essential fields like name, price, and category
+      if (!product.name || !product.price || !product.category) {
+        return false;
+      }
+
+      // Check if the price is a valid positive number
+      if (product.price <= 0) {
+        return false;
+      }
+
+      return true;
+    });
+
+    // If no valid products after filtering, return an error
+    if (filteredProducts.length === 0) {
+      return res.status(400).send({
+        message: 'No valid products to add.',
+      });
+    }
+
+    // Remove duplicates based on product name (or any unique field)
+    const uniqueProducts = [];
+    const seenNames = new Set();
+
+    filteredProducts.forEach(product => {
+      if (!seenNames.has(product.name)) {
+        seenNames.add(product.name);
+        uniqueProducts.push(product);
+      }
+    });
+
+    // Sorting based on 'sortBy' query parameter, if provided
+    if (query.sortBy) {
+      switch (query.sortBy) {
+        case 'recently_added':
+          // Sort by the date added (assuming you have a 'createdAt' field in the product schema)
+          uniqueProducts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          break;
+        case 'price_desc':
+          // Sort by price, from higher to lower
+          uniqueProducts.sort((a, b) => b.price - a.price);
+          break;
+        case 'price_asc':
+          // Sort by price, from lower to higher
+          uniqueProducts.sort((a, b) => a.price - b.price);
+          break;
+        default:
+          // No sorting, keep the original order
+          break;
+      }
+    }
+
+    // Delete all existing products and insert the filtered, unique, and sorted products
     await Product.deleteMany();
-    await Product.insertMany(req.body);
+    await Product.insertMany(uniqueProducts);
+
     res.status(200).send({
-      message: 'Product Added successfully!',
+      message: 'Products added successfully!',
     });
   } catch (err) {
     res.status(500).send({
@@ -55,6 +113,7 @@ const addAllProducts = async (req, res) => {
     });
   }
 };
+
 
 const getShowingProducts = async (req, res) => {
   try {

@@ -237,12 +237,32 @@ const signUpWithProvider = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).sort({ _id: -1 });
+    // Get the search query from the request
+    const { search } = req.query;
+
+    // Build the filter object
+    const filter = search
+      ? {
+          $or: [
+            { phoneNumber: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { fullName: { $regex: search, $options: 'i' } },
+            { Status: { $regex: search, $options: 'i' } },
+            // Add more fields here if needed
+          ]
+        }
+      : {};
+
+    // Fetch users with optional filtering, sorted by _id in descending order
+    const users = await User.find(filter).sort({ _id: -1 });
+
+    // Send the filtered users
     res.send(users);
   } catch (err) {
     res.status(500).send({ message: err.message });
   }
 };
+
 
 const getUserById = async (req, res) => {
   try {
