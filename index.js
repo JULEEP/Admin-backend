@@ -21,15 +21,25 @@ connectDatabase();
 
 // Middleware
 app.use(helmet());
-const allowedOrigins = ['http://localhost:3000', 'https://e-custome.vercel.app']; // Add all allowed origins here
+// List of allowed origins
+const allowedOrigins = [
+  'http://localhost:3000',          // Local development
+  'https://e-custome.vercel.app',   // Production site
+  'https://admin-two-orpin.vercel.app' // New origin to allow
+];
+
+// CORS middleware configuration
 app.use(cors({
   origin: function(origin, callback) {
+    // If no origin (for non-browser requests) or the origin is in the allowedOrigins array, allow the request
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error('Not allowed by CORS')); // Block requests from disallowed origins
     }
-  }
+  },
+  methods: 'GET,POST,PUT,DELETE',  // Allow specific methods, adjust as needed
+  allowedHeaders: 'Content-Type,Authorization', // Specify allowed headers if needed
 }));
 app.use(express.json());
 
