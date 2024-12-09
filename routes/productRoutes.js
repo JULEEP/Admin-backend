@@ -12,7 +12,8 @@ const {
   updateProduct,
   updateStatus,
   deleteProduct,
-  getSimilarProducts
+  getSimilarProducts,
+  searchProducts
 } = require('../controller/productController');
 const multer = require('multer');
 
@@ -60,6 +61,8 @@ router.put('/status/:id', updateStatus);
 //delete a product
 router.delete('/delete-product/:id', deleteProduct);
 router.get('/products/similar', getSimilarProducts);
+router.get('/search', searchProducts);
+
 
 
 module.exports = router;

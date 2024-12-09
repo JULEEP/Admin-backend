@@ -11,11 +11,14 @@ const {
   cancelOrderFromUser,
   invoiceDownload,
   getOrderStatus,
-  updateOrderStatus
+  updateOrderStatus,
+  getOrderForAdmin,
+  invoiceDownloadForAdmin
 } = require('../controller/orderController');
 
 //get all orders
 router.get('/get-orders', getAllOrders);
+router.get('/get-order', getOrderForAdmin)
 router.post("/create-order/:userId", createOrder);
 router.get("/getorder/:userId", getUserOrder)
 
@@ -32,6 +35,7 @@ router.put('/:id', updateOrder);
 router.delete('/delete-order/:userId', deleteOrder)
 router.put('/cancel-order-by-user/:userId', cancelOrderFromUser)
 router.get('/download-invoice/:userId/:orderId', invoiceDownload)
+router.get('/download-invoice/:orderId', invoiceDownloadForAdmin)
 router.get('/orderStatus/:id', getOrderById);
 router.put('/updateOrderStatus/:id', updateOrderStatus);
 

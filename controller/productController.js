@@ -289,6 +289,32 @@ const getSimilarProducts = async (req, res) => {
   }
 };
 
+// Search Controller
+const searchProducts = async (req, res) => {
+  const { query } = req.query;
+
+  try {
+    if (!query) {
+      return res.status(400).json({ message: 'Query parameter is required' });
+    }
+
+    // Search Products by name, description, or category (you can modify the fields as needed)
+    const products = await Product.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } },
+      ],
+    });
+
+    return res.json({ products });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+
 
 module.exports = {
   addProduct,
@@ -302,5 +328,6 @@ module.exports = {
   updateProduct,
   updateStatus,
   deleteProduct,
-  getSimilarProducts
+  getSimilarProducts,
+  searchProducts
 };

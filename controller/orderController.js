@@ -130,80 +130,65 @@ const getAllOrders = async (req, res) => {
     // Build the filter object based on the provided query parameters
     const filter = {};
 
-    // If orderId is provided, filter by orderId
     if (orderId) {
-      filter._id = orderId;
+      filter._id = orderId; // If orderId is provided, filter by _id
     }
 
-    // If productId is provided, filter by productId (assumes productId is part of the order schema)
     if (productId) {
-      filter['products.productId'] = productId; // Assuming products is an array of objects with productId
+      filter['products.productId'] = productId; // Filter by productId (assuming products is an array of objects)
     }
 
-    // If orderType is provided, filter by orderType
     if (orderType) {
-      filter.orderType = orderType;
+      filter.orderType = orderType; // Filter by orderType
     }
 
-    // Get today's date and the first date of the current month
+    // Date filters
     const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // First day of this month
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // Start of this month
 
-    // Filter for total orders this month
+    // Orders created this month
     const ordersThisMonth = await Order.find({
       ...filter,
-      createdAt: { $gte: firstDayOfMonth } // Orders created after the 1st of the current month
+      createdAt: { $gte: firstDayOfMonth }
     });
 
-    // Filter for total orders today
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0)); // Start of today (midnight)
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999)); // End of today (just before midnight of the next day)
-
+    // Orders created today
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
     const ordersToday = await Order.find({
       ...filter,
-      createdAt: { $gte: startOfDay, $lte: endOfDay } // Orders created today
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
-    // Filter for total orders (no date restrictions)
-    const totalOrders = await Order.find(filter); // All orders based on other filters (if any)
+    // Fetch all orders based on the filter
+    const totalOrders = await Order.find(filter); 
 
-    // Filter orders by different statuses
-    const printReadyOrders = await Order.find({
-      ...filter,
-      orderStatus: 'Print Ready'
-    });
+    // Filter by order status
+    const printReadyOrders = await Order.find({ ...filter, orderStatus: 'Print Ready' });
+    const paymentConfirmedOrders = await Order.find({ ...filter, orderStatus: 'Payment Confirmed' });
+    const paymentPendingOrders = await Order.find({ ...filter, orderStatus: 'Payment Pending' });
 
-    const paymentConfirmedOrders = await Order.find({
-      ...filter,
-      orderStatus: 'Payment Confirmed'
-    });
+    // Default query to fetch orders sorted by most recent (descending _id)
+    const ordersQuery = Order.find(filter).sort({ _id: -1 });
 
-    const paymentPendingOrders = await Order.find({
-      ...filter,
-      orderStatus: 'Payment Pending'
-    });
-
-    // If 'recent' is provided, sort by the most recent orders
-    const ordersQuery = Order.find(filter).sort({ _id: -1 }); // Default to descending order for recent
-
-    // If the 'recent' query parameter is set to 'true', we can limit results to recent orders
+    // If 'recent' is true, limit to 10 orders
     if (recent === 'true') {
-      ordersQuery.limit(10);  // Example: get only the 10 most recent orders
+      ordersQuery.limit(10);
     }
 
-    // Get the filtered orders from the database
     const orders = await ordersQuery;
 
-    // Return the results with the additional counts
+    // Send the response with the filtered data
     res.json({
-      totalOrders: totalOrders.length,  // Total number of orders
-      totalOrdersThisMonth: ordersThisMonth.length,  // Orders this month
-      totalOrdersToday: ordersToday.length,  // Orders today
-      printReadyOrdersCount: printReadyOrders.length,  // Orders with Print Ready status
-      paymentConfirmedOrdersCount: paymentConfirmedOrders.length,  // Orders with Payment Confirmed status
-      paymentPendingOrdersCount: paymentPendingOrders.length,  // Orders with Payment Pending status
-      orders: orders, // You can return the filtered orders if needed
+      totalOrders: totalOrders.length,
+      totalOrdersThisMonth: ordersThisMonth.length,
+      totalOrdersToday: ordersToday.length,
+      printReadyOrdersCount: printReadyOrders.length,
+      paymentConfirmedOrdersCount: paymentConfirmedOrders.length,
+      paymentPendingOrdersCount: paymentPendingOrders.length,
+      orders: orders, // The actual filtered orders
     });
+
   } catch (err) {
     res.status(500).send({
       message: err.message,
@@ -212,6 +197,16 @@ const getAllOrders = async (req, res) => {
 };
 
 
+const getOrderForAdmin = async(req, res) => {
+  try {
+    const orders = await Order.find();  // Example using MongoDB
+
+    // Ensure the response is always an array
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch orders', orders: [] });
+  }
+}
 
 const getOrderByUser = async (req, res) => {
   try {
@@ -629,6 +624,107 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+
+const invoiceDownloadForAdmin = async (req, res) => {
+  const { orderId } = req.params;
+
+  try {
+    // Find the order by orderId (no need to check userId)
+    const order = await Order.findOne({ _id: orderId });
+    if (!order) {
+      return res.status(404).send({ status: false, message: "Order not found" });
+    }
+
+    // Map products and create the PDF
+    const products = await Promise.all(order.products.map(async (item) => {
+      const product = await Product.findById(item.product._id);
+      return {
+        productName: product.name,
+        quantity: item.quantity,
+        unitPrice: product.originalPrice,
+        totalAmount: product.originalPrice * item.quantity,
+      };
+    }));
+
+    // Create a new PDF document
+    const doc = new PDFDocument({ size: 'A4' });
+
+    // Set the response to download the PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=invoice-${orderId}.pdf`);
+
+    // Pipe the document to the response object
+    doc.pipe(res);
+
+    // Add Invoice Header
+    doc.fontSize(20).font('Helvetica-Bold').text('Invoice', { align: 'center' });
+    doc.moveDown();
+    
+    // Add Invoice ID, Date, and Status
+    doc.fontSize(12).font('Helvetica').text(`Invoice ID: #${orderId}`, { align: 'left' });
+    doc.text(`Creation Date: ${new Date(order.createdAt).toLocaleDateString()}`, { align: 'left' });
+    doc.text(`Status: ${order.orderStatus}`, { align: 'left' });
+    doc.moveDown();
+
+    // Add "To" and user details (remove userId, use placeholder address & phone)
+    doc.text(`To: Customer`, { align: 'left' });
+    doc.text(`Address: Street, City`, { align: 'left' });
+    doc.text(`Phone: 123-456-789`, { align: 'left' });
+    doc.moveDown();
+
+    // Add Table Header for Items (Use bold for headers)
+    doc.fontSize(12).font('Helvetica-Bold').text('Items:', { align: 'left' });
+    doc.moveDown();
+
+    // Table Column Headers
+    const tableStartY = doc.y;  // Start Y position for table headers
+    const columnWidths = { description: 250, qty: 80, unitPrice: 100, amount: 100 }; // Set column widths
+    doc.text('Description', 50, tableStartY);
+    doc.text('Qty', 50 + columnWidths.description, tableStartY, { align: 'center' });
+    doc.text('Unit Price', 50 + columnWidths.description + columnWidths.qty, tableStartY, { align: 'center' });
+    doc.text('Amount', 50 + columnWidths.description + columnWidths.qty + columnWidths.unitPrice, tableStartY, { align: 'center' });
+    doc.moveDown();
+
+    // Draw line below headers for table
+    doc.moveTo(50, doc.y).lineTo(50 + columnWidths.description + columnWidths.qty + columnWidths.unitPrice + columnWidths.amount, doc.y).stroke();
+
+    // Add the order items in a loop with proper alignment
+    products.forEach((item) => {
+      doc.fontSize(10).font('Helvetica').text(item.productName, 50, doc.y);
+      doc.text(item.quantity, 50 + columnWidths.description, doc.y, { align: 'center' });
+      doc.text(`$${item.unitPrice.toFixed(2)}`, 50 + columnWidths.description + columnWidths.qty, doc.y, { align: 'center' });
+      doc.text(`$${item.totalAmount.toFixed(2)}`, 50 + columnWidths.description + columnWidths.qty + columnWidths.unitPrice, doc.y, { align: 'center' });
+      doc.moveDown();
+    });
+
+    // Draw line after table
+    doc.moveTo(50, doc.y).lineTo(50 + columnWidths.description + columnWidths.qty + columnWidths.unitPrice + columnWidths.amount, doc.y).stroke();
+
+    // Add Subtotal, Tax, and Total with proper alignment
+    const subtotal = products.reduce((sum, item) => sum + item.totalAmount, 0);
+    const tax = subtotal * 0.15; // 15% tax
+    const totalAmount = subtotal + tax;
+
+    doc.moveDown();
+    doc.text(`Subtotal: $${subtotal.toFixed(2)}`, { align: 'right' });
+    doc.text(`Tax (15%): $${tax.toFixed(2)}`, { align: 'right' });
+    doc.text(`Total Amount: $${totalAmount.toFixed(2)}`, { align: 'right' });
+    doc.moveDown();
+
+    // Add "Thank you" message at the end
+    doc.fontSize(12).font('Helvetica').text('Thank you for your purchase!', { align: 'center' });
+    doc.moveDown();
+
+    // Finalize the PDF and send it to the response
+    doc.end();
+
+  } catch (error) {
+    console.error("Error generating invoice:", error);
+    res.status(500).send({ status: false, message: "Internal Server Error" });
+  }
+};
+
+
 module.exports = {
   createOrder,
   getAllOrders,
@@ -640,5 +736,7 @@ module.exports = {
   cancelOrderFromUser,
   invoiceDownload,
   getOrderStatus,
-  updateOrderStatus
+  updateOrderStatus,
+  getOrderForAdmin,
+  invoiceDownloadForAdmin
 };
