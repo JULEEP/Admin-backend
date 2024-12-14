@@ -220,16 +220,16 @@ const getOrderByUser = async (req, res) => {
 };
 
 const getOrderById = async (req, res) => {
-  const { id } = req.params;
+  const { orderId } = req.params;
 
   // Validate if id is a valid ObjectId
-  if (!mongoose.Types.ObjectId.isValid(id)) {
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
     return res.status(400).json({ message: 'Invalid orderId format' });
   }
 
   try {
     // Find the order by _id (id is the MongoDB ObjectId)
-    const order = await Order.findById(id);
+    const order = await Order.findById(orderId);
 
     // If order not found
     if (!order) {

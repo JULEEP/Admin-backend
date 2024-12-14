@@ -36,7 +36,7 @@ router.delete('/delete-order/:userId', deleteOrder)
 router.put('/cancel-order-by-user/:userId', cancelOrderFromUser)
 router.get('/download-invoice/:userId/:orderId', invoiceDownload)
 router.get('/download-invoice/:orderId', invoiceDownloadForAdmin)
-router.get('/orderStatus/:id', getOrderById);
+router.get('/orderStatus/:orderId', getOrderById);
 router.put('/updateOrderStatus/:id', updateOrderStatus);
 
 

@@ -150,6 +150,91 @@ const getAllProducts = async (req, res) => {
   }
 };
 
+const getAllProductsByCategory = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Hordings" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+const getAllProductsByCategoryFliers = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Fliers" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+const getAllProductsByCategoryCanvas = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Canvas Printing" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+const getAllProductsByCategoryAcrylic = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Acrylic Printing" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+const getAllProductsByCategoryBanks = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Banks" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+const getAllProductsByCategoryBillBooks = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Bill Books" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+const getAllProductsByCategoryCards = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "Cards" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
+
 const getStockOutProducts = async (req, res) => {
   try {
     const products = await Product.find({ quantity: { $lt: 1 } }).sort({
@@ -329,5 +414,12 @@ module.exports = {
   updateStatus,
   deleteProduct,
   getSimilarProducts,
-  searchProducts
+  searchProducts,
+  getAllProductsByCategory,
+  getAllProductsByCategoryFliers,
+  getAllProductsByCategoryCanvas,
+  getAllProductsByCategoryAcrylic,
+  getAllProductsByCategoryBanks,
+  getAllProductsByCategoryBillBooks,
+  getAllProductsByCategoryCards
 };
