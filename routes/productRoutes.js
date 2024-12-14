@@ -58,7 +58,7 @@ router.get('/getCards', getAllProductsByCategoryCards);
 
 
 //get a product
-router.get('/:id', getProductById);
+router.get('/singleproduct/:id', getProductById);
 
 //get showing products only
 router.get('/show', getShowingProducts);
