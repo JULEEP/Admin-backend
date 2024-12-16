@@ -70,7 +70,9 @@ const productSchema = new mongoose.Schema(
     children: { type: String, default: '' },  // Child categories or other relation (optional)
     parent: { type: String, default: '' },  // Parent category or relation (optional)
     unit: { type: String, default: '' }, // Unit of measurement (optional)
-    images: [{ type: String }]  // Assuming the images will be file paths or URLs (optional)
+    images: [{ type: String }],  // Assuming the images will be file paths or URLs (optional)
+    myDesigns: [{type: String}], // Array of designs using the sub-schema
+
   },
 
   {

@@ -1,7 +1,6 @@
 const Product = require('../models/Product');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });  // Save images in an 'uploads' directory
-
+const path = require('path');
 
 // Add Product
 const addProduct = async (req, res) => {
@@ -400,6 +399,71 @@ const searchProducts = async (req, res) => {
 };
 
 
+// Configure Multer for file upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Directory to store uploaded designs
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname)); // Unique file name
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const fileTypes = /jpeg|jpg|png|gif/; // Allowed file extensions
+    const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimeType = fileTypes.test(file.mimetype);
+
+    if (extName && mimeType) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images (jpeg, jpg, png, gif) are allowed!'));
+    }
+  },
+}).single('design'); // Specify the field name (e.g., 'design') in the form for the uploaded file
+
+// Controller to handle design upload
+const uploadDesign = async (req, res) => {
+  try {
+    const productId = req.params.id; // Product ID from the route
+
+    upload(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded!' });
+      }
+
+      // Get the uploaded file path
+      const designPath = `/uploads/${req.file.filename}`;
+
+      // Find the product and update the myDesigns array
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found!' });
+      }
+
+      // Add the new design path to the myDesigns array
+      product.myDesigns.push(designPath);
+
+      await product.save();
+
+      res.status(200).json({
+        message: 'Design uploaded successfully!',
+        product,
+      });
+    });
+  } catch (error) {
+    console.error('Error uploading design:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
 
 module.exports = {
   addProduct,
@@ -421,5 +485,6 @@ module.exports = {
   getAllProductsByCategoryAcrylic,
   getAllProductsByCategoryBanks,
   getAllProductsByCategoryBillBooks,
-  getAllProductsByCategoryCards
+  getAllProductsByCategoryCards,
+  uploadDesign
 };

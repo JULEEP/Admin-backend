@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path'); // Import the 'path' module to work with file paths
+
 const {
   getAllProducts,
   getShowingProducts,
@@ -20,20 +22,40 @@ const {
   getAllProductsByCategoryAcrylic,
   getAllProductsByCategoryBanks,
   getAllProductsByCategoryBillBooks,
-  getAllProductsByCategoryCards
+  getAllProductsByCategoryCards,
+  uploadDesign
 } = require('../controller/productController');
 const multer = require('multer');
 
-// Set up multer for file uploads
+
+// Configure Multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Folder to save uploaded files
+    cb(null, 'uploads/'); // Directory to store uploaded designs
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname); // Unique filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname)); // Unique file name
   },
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const fileTypes = /jpeg|jpg|png|gif/; // Allowed file extensions
+    const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimeType = fileTypes.test(file.mimetype);
+
+    if (extName && mimeType) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images (jpeg, jpg, png, gif) are allowed!'));
+    }
+  },
+});
+
+// Route to handle design upload
+router.post('/upload-design/:id', upload.single('design'), uploadDesign);
 
 // Routes
 router.post('/add', upload.array('images', 10), addProduct);
