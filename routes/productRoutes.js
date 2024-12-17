@@ -23,7 +23,10 @@ const {
   getAllProductsByCategoryBanks,
   getAllProductsByCategoryBillBooks,
   getAllProductsByCategoryCards,
-  uploadDesign
+  uploadDesign,
+  getAllProductsBySearh,
+  submitRating,
+  getProductRatings
 } = require('../controller/productController');
 const multer = require('multer');
 
@@ -63,6 +66,7 @@ router.post('/add', upload.array('images', 10), addProduct);
 //add multiple products
 router.post('/all', addAllProducts);
 router.get('/getall', getAllProducts);
+router.get('/getall-search', getAllProductsBySearh);
 router.get('/getallproductbycat', getAllProductsByCategory);
 router.get('/getfliers', getAllProductsByCategoryFliers);
 router.get('/getcanvas', getAllProductsByCategoryCanvas);
@@ -70,6 +74,9 @@ router.get('/getAcrylic', getAllProductsByCategoryAcrylic);
 router.get('/getBanks', getAllProductsByCategoryBanks);
 router.get('/getBillBooks', getAllProductsByCategoryBillBooks);
 router.get('/getCards', getAllProductsByCategoryCards);
+router.post('/rate/:userId', submitRating);
+router.get('ratings/:productId', getProductRatings);
+
 
 
 

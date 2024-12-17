@@ -72,6 +72,15 @@ const productSchema = new mongoose.Schema(
     unit: { type: String, default: '' }, // Unit of measurement (optional)
     images: [{ type: String }],  // Assuming the images will be file paths or URLs (optional)
     myDesigns: [{type: String}], // Array of designs using the sub-schema
+ ratings: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      rating: { type: Number, required: true },
+      comment: { type: String, required: false }
+    }
+  ],
+  averageRating: { type: Number, default: 0 },
+  reviewCount: { type: Number, default: 0 },
 
   },
 
@@ -79,6 +88,15 @@ const productSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Method to calculate the average rating
+productSchema.methods.calculateAverageRating = function () {
+  const totalRatings = this.ratings.length;
+  if (totalRatings === 0) return 0;
+
+  const sumOfRatings = this.ratings.reduce((sum, rating) => sum + rating.rating, 0);
+  return sumOfRatings / totalRatings;
+};
 
 const Product = mongoose.model('Product', productSchema);
 

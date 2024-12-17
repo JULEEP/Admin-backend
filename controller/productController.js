@@ -148,6 +148,36 @@ const getAllProducts = async (req, res) => {
     });
   }
 };
+const getAllProductsBySearh = async (req, res) => {
+  const { name, description, category } = req.query;  // Get query parameters from the request
+
+  try {
+    // Build the query object dynamically based on the parameters passed in the URL
+    let query = {};
+
+    if (name) {
+      query.name = { $regex: name, $options: 'i' };  // Case-insensitive search for name
+    }
+    if (description) {
+      query.description = { $regex: description, $options: 'i' };  // Case-insensitive search for description
+    }
+    if (category) {
+      query.category = { $regex: category, $options: 'i' };  // Case-insensitive search for category
+    }
+
+    // Find products matching the query parameters
+    const products = await Product.find(query).sort({ _id: -1 });
+
+    // Send the results as a response
+    res.send(products);
+  } catch (err) {
+    // Handle errors
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
 
 const getAllProductsByCategory = async (req, res) => {
   try {
@@ -464,6 +494,67 @@ const uploadDesign = async (req, res) => {
   }
 };
 
+const submitRating = async (req, res) => {
+  const { productId, rating, comment } = req.body;
+  const { userId } = req.params; // Get userId from the URL params
+
+  // Check if the rating is valid
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: "Rating should be between 1 and 5" });
+  }
+
+  try {
+    // Find the product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if the user has already rated this product
+    const existingRating = product.ratings.find(rating => rating.userId.toString() === userId);
+    if (existingRating) {
+      return res.status(400).json({ message: 'You have already rated this product' });
+    }
+
+    // Add the new rating to the product
+    product.ratings.push({ userId, rating, comment });
+
+    // Recalculate the average rating
+    product.averageRating = product.calculateAverageRating();
+    product.reviewCount = product.ratings.length; // Update review count
+
+    // Save the product with the new rating
+    await product.save();
+
+    return res.status(201).json({
+      message: 'Rating submitted successfully!',
+      product: product,
+      rating: { userId, rating, comment },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+// Get Ratings for a Product
+const getProductRatings = async (req, res) => {
+  const { productId } = req.params;
+
+  try {
+    const product = await Product.findById(productId).populate('ratings');
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    return res.status(200).json({ ratings: product.ratings });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 
 module.exports = {
   addProduct,
@@ -486,5 +577,8 @@ module.exports = {
   getAllProductsByCategoryBanks,
   getAllProductsByCategoryBillBooks,
   getAllProductsByCategoryCards,
-  uploadDesign
+  uploadDesign,
+  getAllProductsBySearh,
+  submitRating,
+  getProductRatings
 };
