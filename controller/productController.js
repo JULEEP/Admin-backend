@@ -516,8 +516,16 @@ const submitRating = async (req, res) => {
       return res.status(400).json({ message: 'You have already rated this product' });
     }
 
+    // Create the new rating
+    const newRating = {
+      userId,
+      rating,
+      comment,
+      createdAt: new Date(), // Set the `createdAt` field manually
+    };
+
     // Add the new rating to the product
-    product.ratings.push({ userId, rating, comment });
+    product.ratings.push(newRating);
 
     // Recalculate the average rating
     product.averageRating = product.calculateAverageRating();
@@ -529,7 +537,7 @@ const submitRating = async (req, res) => {
     return res.status(201).json({
       message: 'Rating submitted successfully!',
       product: product,
-      rating: { userId, rating, comment },
+      ratings: newRating, // Include `createdAt` in the response
     });
   } catch (error) {
     console.error(error);
@@ -538,22 +546,62 @@ const submitRating = async (req, res) => {
 };
 
 
+
 // Get Ratings for a Product
 const getProductRatings = async (req, res) => {
-  const { productId } = req.params;
+  const { id } = req.params;
 
   try {
-    const product = await Product.findById(productId).populate('ratings');
+    const product = await Product.findById(id)
+      .populate({
+        path: 'ratings',
+        select: 'createdAt rating comment', // Ensure createdAt is included here
+        populate: {
+          path: 'userId',
+          select: 'fullName email', // Select `fullName` and `email` fields of the user
+        },
+      });
+
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    return res.status(200).json({ ratings: product.ratings });
+    // Calculate average rating and count
+    const ratingCount = product.ratings.length;
+    const averageRating = ratingCount > 0
+      ? product.ratings.reduce((acc, rating) => acc + rating.rating, 0) / ratingCount
+      : 0;
+
+    // Format the createdAt date for each rating
+    const formattedRatings = product.ratings.map(rating => {
+      const formattedDate = new Date(rating.createdAt).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+
+      return {
+        ...rating.toObject(),
+        createdAt: formattedDate, // Replace the original createdAt with the formatted one
+      };
+    });
+
+    return res.status(200).json({
+      ratings: formattedRatings,
+      averageRating: averageRating.toFixed(1), // Round average to 1 decimal place
+      ratingCount: ratingCount, // Count the number of ratings
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
+
+
+
+
+
 
 
 module.exports = {

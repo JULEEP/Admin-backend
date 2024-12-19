@@ -76,7 +76,9 @@ const productSchema = new mongoose.Schema(
     {
       userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
       rating: { type: Number, required: true },
-      comment: { type: String, required: false }
+      comment: { type: String, required: false },
+      createdAt: { type: Date, default: Date.now }, // If you are manually setting, this might override the default behavior
+
     }
   ],
   averageRating: { type: Number, default: 0 },

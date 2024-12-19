@@ -75,7 +75,7 @@ router.get('/getBanks', getAllProductsByCategoryBanks);
 router.get('/getBillBooks', getAllProductsByCategoryBillBooks);
 router.get('/getCards', getAllProductsByCategoryCards);
 router.post('/rate/:userId', submitRating);
-router.get('ratings/:productId', getProductRatings);
+router.get('/ratings/:id', getProductRatings);
 
 
 
