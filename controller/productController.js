@@ -1,32 +1,49 @@
 const Product = require('../models/Product');
 const multer = require('multer');
 const path = require('path');
+const { PDFDocument, rgb } = require('pdf-lib');
+const pdfParse = require('pdf-parse');
+const mongoose = require('mongoose');
+const Image = require('../models/Image')
+const sharp = require("sharp");
+const fs = require("fs/promises");
+const cloudinary = require('../config/cloudinary')
 
-// Add Product
+
+
+
+
 const addProduct = async (req, res) => {
   try {
+    const { name, category, slug, description, size, color, moq, originalPrice, discountedPrice, type, quantity, unit, subcategory, images } = req.body;
+
     const newProduct = new Product({
-      name: req.body.name || '',
-      category: req.body.category || '',
-      slug: req.body.slug || '',
-      description: req.body.description || '',
-      size: req.body.size || '',
-      color: req.body.color || '',
-      moq: req.body.moq || 0,
-      originalPrice: req.body.originalPrice || 0,
-      discountedPrice: req.body.discountedPrice || 0,
-      type: req.body.type || '',
-      quantity: req.body.quantity || 0,
-      unit: req.body.unit || '',
-      parent: req.body.parent || '',
-      children: req.body.children || '',
-      images: req.body.images,
+      name: name || '',
+      category: category || '',
+      slug: slug || '',
+      description: description || '',
+      size: size || '',
+      color: color || '',
+      moq: moq || 0,
+      originalPrice: originalPrice || 0,
+      discountedPrice: discountedPrice || 0,
+      type: type || '',
+      quantity: quantity || 0,
+      unit: unit || '',
+      subcategory: subcategory || '', // Add subcategory
+      images: []
     });
 
-    // Handle file uploads
-    // if (req.files && req.files.length > 0) {
-    //   newProduct.images = req.files.map(file => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
-    // }
+    // Handle image uploads to Cloudinary
+    if (req.files && req.files.length > 0) {
+      for (let i = 0; i < req.files.length; i++) {
+        const result = await cloudinary.uploader.upload(req.files[i].path, {
+          upload_preset: 'custom', // Your preset for Cloudinary upload
+        });
+
+        newProduct.images.push(result.secure_url); // Store the Cloudinary URL of each image
+      }
+    }
 
     // Save product to the database
     await newProduct.save();
@@ -39,7 +56,6 @@ const addProduct = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 const addAllProducts = async (req, res) => {
   try {
@@ -429,31 +445,31 @@ const searchProducts = async (req, res) => {
 };
 
 
-// Configure Multer for file upload
+// Multer configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Directory to store uploaded designs
+    cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname)); // Unique file name
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 const upload = multer({
-  storage: storage,
+  storage,
   fileFilter: (req, file, cb) => {
-    const fileTypes = /jpeg|jpg|png|gif/; // Allowed file extensions
+    const fileTypes = /pdf|jpeg|jpg|png|gif/;
     const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimeType = fileTypes.test(file.mimetype);
+    const mimeType = file.mimetype.startsWith('application/pdf') || file.mimetype.startsWith('image/');
 
     if (extName && mimeType) {
-      return cb(null, true);
+      cb(null, true);
     } else {
-      cb(new Error('Only images (jpeg, jpg, png, gif) are allowed!'));
+      cb(new Error('Only PDF or image files are allowed!'));
     }
   },
-}).single('design'); // Specify the field name (e.g., 'design') in the form for the uploaded file
+}).single('file'); // Field name for the file input
 
 // Controller to handle design upload
 const uploadDesign = async (req, res) => {
@@ -598,11 +614,605 @@ const getProductRatings = async (req, res) => {
 };
 
 
+const generateInvitation = async (req, res) => {
+  try {
+    // Handle file upload
+    upload(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message || 'File upload failed.' });
+      }
+
+      const { productId, phoneNumber, emailAddress } = req.body; // Assuming these values are sent in the request
+
+      // Fetch product from DB
+      const product = await Product.findById(productId);
+      if (!product) {
+        return res.status(404).json({ message: 'Product not found.' });
+      }
+
+      // Process PDF file
+      if (req.file && req.file.mimetype === 'application/pdf') {
+        const filePath = req.file.path;
+
+        // Read the PDF file
+        const existingPdfBytes = fs.readFileSync(filePath);
+
+        // Use pdf-parse to extract text from the PDF
+        const data = await pdfParse(existingPdfBytes);
+
+        // Extracted text from the PDF (you can use this for reference if needed)
+        const extractedText = data.text;
+
+        // Load the PDF with pdf-lib
+        const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+        // Get the first page of the document
+        const page = pdfDoc.getPages()[0];
+
+        // Default coordinates for adding text
+        const x = 50;  // X coordinate for the text
+        let y = 600;   // Y coordinate for the text, adjust based on where you want to place it
+
+        // Add phone number to PDF
+        if (phoneNumber) {
+          page.drawText(`Phone: ${phoneNumber}`, {
+            x,
+            y,
+            size: 12,
+            color: rgb(0, 0, 0), // Black text color
+          });
+          y -= 20;  // Move the y-position down for the next line
+        }
+
+        // Add email address to PDF
+        if (emailAddress) {
+          page.drawText(`Email: ${emailAddress}`, {
+            x,
+            y,
+            size: 12,
+            color: rgb(0, 0, 0), // Black text color
+          });
+          y -= 20;  // Move the y-position down for the next line
+        }
+
+        // You can add more details here as needed (like recipient name, event, etc.)
+
+        // Save the modified PDF
+        const updatedPdfBytes = await pdfDoc.save();
+
+        // Define a new file path for the updated PDF
+        const updatedFilePath = filePath.replace('.pdf', '-updated.pdf');
+
+        // Save the updated PDF to the file system
+        fs.writeFileSync(updatedFilePath, updatedPdfBytes);
+
+        // Save the updated card entry with the new file and extracted text
+        const cardEntry = {
+          fileName: req.file.filename.replace('.pdf', '-updated.pdf'),
+          filePath: updatedFilePath,
+          extractedText,  // Store the extracted text
+        };
+
+        // Add the card entry to the product's generateCard array
+        product.generateCard.push(cardEntry);
+        await product.save();
+
+        // Send the updated PDF as the response
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${cardEntry.fileName}"`);
+
+        const fileStream = fs.createReadStream(updatedFilePath);
+        fileStream.pipe(res);
+      } else {
+        res.status(400).json({ message: 'Unsupported file type. Only PDF files are allowed.' });
+      }
+    });
+  } catch (error) {
+    console.error('Error in generateInvitation:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+
+
+const updateInvitation = async (req, res) => {
+  try {
+    const { 
+      productId, 
+      cardId, 
+      recipientName, 
+      eventName, 
+      date, 
+      location, 
+      host, 
+      eventPurpose 
+    } = req.body;
+
+    // Validate productId
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ message: 'Invalid productId format.' });
+    }
+
+    // Fetch product from DB
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    // Find the card in the generateCard array to update
+    const cardIndex = product.generateCard.findIndex(card => card._id.toString() === cardId);
+    if (cardIndex === -1) {
+      return res.status(404).json({ message: 'Invitation card not found.' });
+    }
+
+    // Retrieve the existing card details
+    const card = product.generateCard[cardIndex];
+
+    // Path to the original PDF
+    const filePath = card.filePath;
+
+    // Read the existing PDF
+    const pdfBytes = fs.readFileSync(filePath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+
+    // Get the first page of the document (assuming data is on the first page)
+    const page = pdfDoc.getPages()[0];
+
+    // We will replace the existing content with new content.
+    // This assumes you're replacing static text like `Samantha` with `Julee`.
+
+    // Define the x, y coordinates for each text that needs to be replaced
+    // Adjust these coordinates based on the exact positions in your PDF
+
+    // For 'recipientName' (Assuming 'Samantha' is at this position)
+    if (recipientName) {
+      page.drawText(recipientName, {
+        x: 100, // Adjust this to the actual x position
+        y: 550, // Adjust Y coordinate as per the PDF layout
+        size: 18,
+        color: rgb(0, 0, 0), // Black color
+      });
+    }
+
+    // For 'eventName' (Assuming it's at this position)
+    if (eventName) {
+      page.drawText(eventName, {
+        x: 100, // Adjust for eventName position
+        y: 530, // Adjust Y coordinate
+        size: 18,
+        color: rgb(0, 0, 0), // Black color
+      });
+    }
+
+    // Similarly for other fields like 'location', 'date', 'host', 'eventPurpose'
+    if (location) {
+      page.drawText(location, {
+        x: 100, // Adjust for location
+        y: 510, // Adjust Y coordinate
+        size: 18,
+        color: rgb(0, 0, 0), // Black color
+      });
+    }
+
+    if (date) {
+      page.drawText(date, {
+        x: 100, // Adjust for date
+        y: 490, // Adjust Y coordinate
+        size: 18,
+        color: rgb(0, 0, 0), // Black color
+      });
+    }
+
+    if (host) {
+      page.drawText(host, {
+        x: 100, // Adjust for host
+        y: 470, // Adjust Y coordinate
+        size: 18,
+        color: rgb(0, 0, 0), // Black color
+      });
+    }
+
+    if (eventPurpose) {
+      page.drawText(eventPurpose, {
+        x: 100, // Adjust for eventPurpose
+        y: 450, // Adjust Y coordinate
+        size: 18,
+        color: rgb(0, 0, 0), // Black color
+      });
+    }
+
+    // Save the updated PDF
+    const updatedPdfBytes = await pdfDoc.save();
+
+    // Define a new file path for the updated PDF
+    const updatedFilePath = path.join(__dirname, 'uploads', `updated_${card.fileName}`);
+
+    // Save the updated PDF to the file system
+    fs.writeFileSync(updatedFilePath, updatedPdfBytes);
+
+    // Update the card's metadata
+    card.fileName = `updated_${card.fileName}`;
+    card.filePath = updatedFilePath;
+    card.extractedText = `Updated text content with new values: ${recipientName}, ${eventName}, ${date}, ${location}, ${host}, ${eventPurpose}`; // Update extractedText field
+
+    // Save the updated product details to the database
+    await product.save();
+
+    // Send the updated PDF as the response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${card.fileName}"`);
+
+    const fileStream = fs.createReadStream(updatedFilePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('Error in updateInvitation:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
 
 
 
 
+const editPdfAndUploadToProduct = async (req, res) => {
+  try {
+    // Extract product ID and replacement text from request body
+    const { id, invoiceText, partnerText } = req.body;
 
+    // Find the product by its ID
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found.' });
+    }
+
+    // File path of the uploaded original PDF
+    const filePath = req.file.path;
+    const existingPdfBytes = fs.readFileSync(filePath);
+
+    // Load and modify the PDF
+    const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+    // Embed a font for adding new text
+    const font = await pdfDoc.embedFont(PDFDocument.PDFName.of('Helvetica'));
+
+    // Get the first page of the PDF
+    const page = pdfDoc.getPages()[0];
+
+    // Erase and replace the text dynamically
+    const eraseAreaInvoice = { x: 50, y: 750, width: 200, height: 30 }; // Coordinates for 'INVOICE'
+    page.drawRectangle({
+      x: eraseAreaInvoice.x,
+      y: eraseAreaInvoice.y,
+      width: eraseAreaInvoice.width,
+      height: eraseAreaInvoice.height,
+      color: rgb(1, 1, 1), // White background to erase
+    });
+
+    const eraseAreaPartner = { x: 50, y: 720, width: 300, height: 30 }; // Coordinates for 'Aldenaire & Partners'
+    page.drawRectangle({
+      x: eraseAreaPartner.x,
+      y: eraseAreaPartner.y,
+      width: eraseAreaPartner.width,
+      height: eraseAreaPartner.height,
+      color: rgb(1, 1, 1),
+    });
+
+    // Add the new text
+    page.drawText(invoiceText || 'INVOICE', {
+      x: eraseAreaInvoice.x + 5,
+      y: eraseAreaInvoice.y + 10,
+      size: 14,
+      font,
+      color: rgb(0, 0, 0),
+    });
+
+    page.drawText(partnerText || 'Aldenaire & Partners', {
+      x: eraseAreaPartner.x + 5,
+      y: eraseAreaPartner.y + 10,
+      size: 12,
+      font,
+      color: rgb(0, 0, 0),
+    });
+
+    // Save the modified PDF
+    const modifiedPdfBytes = await pdfDoc.save();
+    const modifiedFileName = `modified_invoice_${Date.now()}.pdf`;
+    const modifiedFilePath = `./uploads/${modifiedFileName}`;
+    fs.writeFileSync(modifiedFilePath, modifiedPdfBytes);
+
+    // Add the modified PDF details to the product's generateCard array
+    const cardEntry = {
+      id: Date.now().toString(), // Generate a unique ID for the card
+      fileName: modifiedFileName,
+      filePath: modifiedFilePath,
+    };
+    product.generateCard.push(cardEntry);
+
+    // Save the updated product
+    await product.save();
+
+    // Send response with product details and card entry
+    res.status(200).json({
+      message: 'PDF modified and uploaded successfully.',
+      productId: product._id,
+      cardEntry,
+    });
+  } catch (error) {
+    console.error('Error editing PDF:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+
+// Function to add text to an image
+const addTextToImage = async (filePath, outputPath, textFields) => {
+  const { logoText, nameText, addressText } = textFields;
+
+  // Create an SVG overlay with dynamic text fields
+  const textOverlay = Buffer.from(
+    `<svg width="800" height="400">
+      <!-- Logo at top-left -->
+      <text x="250" y="350" font-size="30" fill="black">Logo: ${logoText}</text>
+      
+      <!-- Name at center -->
+      <text x="400" y="400" font-size="30" fill="black" text-anchor="middle">Name: ${nameText}</text>
+      
+      <!-- Address at bottom-left -->
+      <text x="500" y="400" font-size="30" fill="black">Address: ${addressText}</text>
+    </svg>`
+  );
+
+  // Use sharp to apply the text overlay to the image
+  await sharp(filePath)
+    .composite([{ input: textOverlay, gravity: "northwest" }])
+    .toFile(outputPath);
+};
+
+const uploadFile = async (req, res) => {
+  try {
+    const { nameText, month, contactNumber, year, templateUrl } = req.body; // Get form data
+    let images = req.files; // Get uploaded files (we expect templateImage in the URL)
+    const logoImage = req.files.logoImage ? req.files.logoImage[0] : null; // Optional logo image
+
+    if (!templateUrl) {
+      return res.status(400).json({ error: 'No template image URL provided' });
+    }
+
+    const transformations = [];
+
+    // Apply text overlays for fields dynamically
+    const overlayFields = [
+      { text: nameText, y: 30 },
+      { text: contactNumber, y: 80 },
+      { text: month, y: 130 },
+      { text: year, y: 180 },
+    ];
+
+    overlayFields.forEach(field => {
+      if (field.text) {
+        transformations.push({
+          overlay: {
+            font_family: "Arial",
+            font_size: 40,
+            text: field.text, // Dynamic text field
+          },
+          color: "#000000", // Text color
+          gravity: "south", // Position text at the bottom
+          y: field.y, // Dynamic vertical offset
+        });
+      }
+    });
+
+    // Apply logo overlay if logo image is uploaded
+    if (logoImage) {
+      // Upload the logo image to Cloudinary first
+      const logoResponse = await cloudinary.uploader.upload(logoImage.path, {
+        upload_preset: 'custom', // Your preset for Cloudinary upload
+      });
+
+      // Add the logo as an overlay with the retrieved public_id
+      transformations.push({
+        overlay: {
+          public_id: logoResponse.public_id, // Logo public_id for overlay
+          width: 200, // Adjust width and height as necessary
+          height: 100,
+        },
+        gravity: "north", // Position logo at the top
+        y: 10, // Offset for logo
+      });
+    }
+
+    // Apply transformations to the template image
+    const finalImageResponse = await cloudinary.uploader.upload(templateUrl, {
+      upload_preset: 'custom', // Your preset for Cloudinary upload
+      transformation: transformations, // Apply dynamic transformations
+    });
+
+    // Save the final image URL and metadata to the database
+    const product = new Image({
+      images: [finalImageResponse.secure_url], // Store the transformed image URL
+      nameText, // Store nameText
+      templateUrl, // Store the URL of the template image
+    });
+
+    await product.save(); // Save the product to the database
+
+    res.status(201).json({
+      success: true,
+      message: 'Product Created Successfully with Text Overlay',
+      product, // Return the saved product object
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Error in creating product',
+    });
+  }
+};
+
+
+
+
+// Upload a new template to Cloudinary
+const uploadTemplate = async (req, res) => {
+  try {
+    const file = req.file; // Uploaded file
+
+    if (!file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    // Upload the template to Cloudinary
+    const uploadResponse = await cloudinary.uploader.upload(file.path, {
+      upload_preset: 'custom', // Your Cloudinary upload preset
+      folder: 'templates', // Optional: store in a specific folder
+    });
+
+    // Save the template details in the database
+    const newTemplate = new Image({
+      url: uploadResponse.secure_url,
+      public_id: uploadResponse.public_id,
+      isTemplate: true, // Mark as a template
+    });
+
+    await newTemplate.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Template uploaded successfully!',
+      template: newTemplate,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading template',
+      error: error.message,
+    });
+  }
+};
+
+
+
+// Get the absolute path of the file
+const getAbsoluteFilePath = (filePath) => {
+  // Assuming 'uploads' directory is in the root of your project
+  return path.resolve(filePath);
+};
+
+// Check if the file exists using fs.promises.access
+const fileExists = async (filePath) => {
+  try {
+    await fs.access(filePath); // Check if file is accessible
+    return true; // File exists
+  } catch (error) {
+    return false; // File does not exist
+  }
+};
+
+// Function to generate the image with new text
+const addTextToImageUpdate = async (filePath, outputPath, { logoText, nameText, addressText }) => {
+  // Create an SVG overlay for text positions
+  const textOverlay = Buffer.from(
+    `<svg width="800" height="400">
+      <text x="10" y="50" font-size="30" fill="black">${logoText}</text>
+      <text x="10" y="100" font-size="30" fill="black">${nameText}</text>
+      <text x="10" y="150" font-size="30" fill="black">${addressText}</text>
+    </svg>`
+  );
+
+  // Use sharp to apply the text overlay to the image
+  await sharp(filePath)
+    .composite([{ input: textOverlay, gravity: "northwest" }])
+    .toFile(outputPath);
+};
+
+// Update the text fields and regenerate the image
+const updateTextFields = async (req, res) => {
+  const { logoText, nameText, addressText } = req.body;
+  const { id } = req.params;  // Getting the image ID from the URL
+
+  try {
+    // Update the text fields in the database using findByIdAndUpdate
+    const updatedImage = await Image.findByIdAndUpdate(
+      id,
+      {
+        logoText: logoText || undefined,  // Only update if value is provided
+        nameText: nameText || undefined,  // Only update if value is provided
+        addressText: addressText || undefined,  // Only update if value is provided
+      },
+      { new: true } // This will return the updated image after the operation
+    );
+
+    if (!updatedImage) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    // You can also regenerate the image if needed using sharp, like this:
+    // await addTextToImage(updatedImage.filePath, updatedOutputPath, {
+    //   logoText: updatedImage.logoText,
+    //   nameText: updatedImage.nameText,
+    //   addressText: updatedImage.addressText,
+    // });
+
+    // Return the updated image data in the response (for simplicity, we are just returning the updated image)
+    return res.json(updatedImage);
+
+  } catch (error) {
+    console.error("Error updating text fields:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Controller to fetch and serve the image
+const getImage = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Fetch the image by ID from the database, selecting only the 'filePath' field
+    const image = await Image.findById(id).select('filePath');
+
+    if (!image) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    // Send the image file to the client
+    res.sendFile(image.filePath, { root: '.' }); // Assuming the 'filePath' is relative to the project root
+
+  } catch (error) {
+    console.error("Error fetching image:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Fetch all templates
+const getTemplates = async (req, res) => {
+  try {
+    // Find all templates with the `isTemplate` flag set to true
+    const templates = await Image.find({ isTemplate: true });
+
+    if (!templates || templates.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No templates found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Templates fetched successfully',
+      templates,
+    });
+  } catch (error) {
+    console.error('Error fetching templates:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'Failed to fetch templates',
+    });
+  }
+};
 
 module.exports = {
   addProduct,
@@ -628,5 +1238,13 @@ module.exports = {
   uploadDesign,
   getAllProductsBySearh,
   submitRating,
-  getProductRatings
+  getProductRatings,
+  generateInvitation,
+  updateInvitation,
+  editPdfAndUploadToProduct,
+  uploadFile,
+  updateTextFields,
+  getImage,
+  uploadTemplate,
+  getTemplates
 };

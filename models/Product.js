@@ -56,6 +56,10 @@ const productSchema = new mongoose.Schema(
       default: 'Show',
       enum: ['Show', 'Hide'],
     },
+    filePath: String,
+    logoText: String,
+    nameText: String,
+    addressText: String,
     name: { type: String, default: '' },
     category: { type: String, default: '' },
     slug: { type: String, default: '' },
@@ -81,6 +85,32 @@ const productSchema = new mongoose.Schema(
 
     }
   ],
+  generateCard: [
+    {
+      fileName: { type: String }, // `required` removed
+      filePath: { type: String }, // `required` removed
+      eventName: { type: String }, // `required` removed
+      date: { type: String },     // `required` removed
+      location: { type: String }, // `required` removed
+      host: { type: String },     // `required` removed
+      extractedText: { type: String }, // Added this field to store extracted text
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
+  name: { type: String, default: '' },
+  category: { type: String, default: '' },
+  slug: { type: String, default: '' },
+  description: { type: String, default: '' },
+  size: { type: String, default: '' },
+  color: { type: String, default: '' },
+  moq: { type: Number, default: 0 },
+  originalPrice: { type: Number, default: 0 },
+  discountedPrice: { type: Number, default: 0 },
+  type: { type: String, default: '' },
+  quantity: { type: Number, default: 0 },
+  unit: { type: String, default: '' },
+  subcategory: { type: String, default: '' }, // New subcategory field
+  images: { type: [String], default: [] }, // To store Cloudinary image URLs
   averageRating: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
 

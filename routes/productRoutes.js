@@ -26,36 +26,21 @@ const {
   uploadDesign,
   getAllProductsBySearh,
   submitRating,
-  getProductRatings
+  getProductRatings,
+  generateInvitation,
+  updateInvitation,
+  editPdfAndUploadToProduct,
+  uploadFile,
+  updateTextFields,
+  getImage,
+  updateImageText,
+  uploadTemplate,
+  getTemplates
 } = require('../controller/productController');
 const multer = require('multer');
 
+const upload = multer({ dest: 'uploads/' }); // Temporary storage folder
 
-// Configure Multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Directory to store uploaded designs
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname)); // Unique file name
-  },
-});
-
-const upload = multer({
-  storage: storage,
-  fileFilter: (req, file, cb) => {
-    const fileTypes = /jpeg|jpg|png|gif/; // Allowed file extensions
-    const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimeType = fileTypes.test(file.mimetype);
-
-    if (extName && mimeType) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only images (jpeg, jpg, png, gif) are allowed!'));
-    }
-  },
-});
 
 // Route to handle design upload
 router.post('/upload-design/:id', upload.single('design'), uploadDesign);
@@ -76,6 +61,18 @@ router.get('/getBillBooks', getAllProductsByCategoryBillBooks);
 router.get('/getCards', getAllProductsByCategoryCards);
 router.post('/rate/:userId', submitRating);
 router.get('/ratings/:id', getProductRatings);
+router.post('/generate', generateInvitation);
+//router.put('/update', updateInvitation);
+router.post('/upload', upload.array('logoImage'), uploadFile);
+//router.post("/update", updateImageText);
+router.get('/image/:id', getImage);
+router.post('/upload-template', upload.single('template'), uploadTemplate);
+router.get('/get-templates', getTemplates);
+
+
+
+
+
 
 
 
