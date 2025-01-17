@@ -35,7 +35,8 @@ const {
   getImage,
   updateImageText,
   uploadTemplate,
-  getTemplates
+  getTemplates,
+  getAllProductsByCategorySchool
 } = require('../controller/productController');
 const multer = require('multer');
 
@@ -54,6 +55,7 @@ router.get('/getall', getAllProducts);
 router.get('/getall-search', getAllProductsBySearh);
 router.get('/getallproductbycat', getAllProductsByCategory);
 router.get('/getfliers', getAllProductsByCategoryFliers);
+router.get('/getschool', getAllProductsByCategorySchool);
 router.get('/getcanvas', getAllProductsByCategoryCanvas);
 router.get('/getAcrylic', getAllProductsByCategoryAcrylic);
 router.get('/getBanks', getAllProductsByCategoryBanks);

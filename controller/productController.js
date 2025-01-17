@@ -298,6 +298,18 @@ const getAllProductsByCategoryFliers = async (req, res) => {
   }
 };
 
+const getAllProductsByCategorySchool = async (req, res) => {
+  try {
+    // Filter products where the category is "Hordings" and sort by _id in descending order
+    const products = await Product.find({ category: "School" }).sort({ _id: -1 });
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({
+      message: err.message,
+    });
+  }
+};
+
 const getAllProductsByCategoryCanvas = async (req, res) => {
   try {
     // Filter products where the category is "Hordings" and sort by _id in descending order
@@ -1458,6 +1470,7 @@ module.exports = {
   searchProducts,
   getAllProductsByCategory,
   getAllProductsByCategoryFliers,
+  getAllProductsByCategorySchool,
   getAllProductsByCategoryCanvas,
   getAllProductsByCategoryAcrylic,
   getAllProductsByCategoryBanks,
