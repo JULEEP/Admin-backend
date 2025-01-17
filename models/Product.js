@@ -114,6 +114,37 @@ const productSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       }
     ],
+    variations: [
+      {
+        paperSize: {
+          type: String,
+        },
+        paperName: {
+          type: String,
+        },
+        color: {
+          type: String,
+        },
+        quantity: {
+          type: Number,
+        },
+        price: {
+          type: Number,
+        },
+      },
+    ],
+    paperSizes: {
+      type: [String], // Array of strings for paper sizes
+    },
+    paperNames: {
+      type: [String], // Array of strings for paper names
+    },
+    colors: {
+      type: [String], // Array of strings for colors
+    },
+    quantities: {
+      type: [Number], // Array of numbers for quantities
+    },
     templates: [
       {
         url: { type: String, required: true },

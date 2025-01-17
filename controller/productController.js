@@ -30,23 +30,29 @@ const addProduct = async (req, res) => {
       unit, 
       subcategory, 
       images, 
-      paperSizes = [], // Default to an empty array if not provided
-      paperNames = [], // Default to an empty array if not provided
-      colors = [], // Default to an empty array if not provided
-      quantities = [], // Default to an empty array if not provided
+      paperSizes = '', // Default to an empty string if not provided
+      paperNames = '', // Default to an empty string if not provided
+      colors = '', // Default to an empty string if not provided
+      quantities = '', // Default to an empty string if not provided
     } = req.body;
 
+    // Convert the comma-separated strings to arrays
+    const paperSizesArray = paperSizes.split(',').map(size => size.trim()).filter(size => size);
+    const paperNamesArray = paperNames.split(',').map(name => name.trim()).filter(name => name);
+    const colorsArray = colors.split(',').map(color => color.trim()).filter(color => color);
+    const quantitiesArray = quantities.split(',').map(quantity => quantity.trim()).filter(quantity => quantity);
+
     // Check if required arrays are provided and are non-empty
-    if (!Array.isArray(paperSizes) || paperSizes.length === 0) {
+    if (paperSizesArray.length === 0) {
       return res.status(400).json({ message: 'Paper sizes must be provided as a non-empty array.' });
     }
-    if (!Array.isArray(paperNames) || paperNames.length === 0) {
+    if (paperNamesArray.length === 0) {
       return res.status(400).json({ message: 'Paper names must be provided as a non-empty array.' });
     }
-    if (!Array.isArray(colors) || colors.length === 0) {
+    if (colorsArray.length === 0) {
       return res.status(400).json({ message: 'Colors must be provided as a non-empty array.' });
     }
-    if (!Array.isArray(quantities) || quantities.length === 0) {
+    if (quantitiesArray.length === 0) {
       return res.status(400).json({ message: 'Quantities must be provided as a non-empty array.' });
     }
 
@@ -54,33 +60,33 @@ const addProduct = async (req, res) => {
     let productVariations = [];
 
     // Loop through all combinations of paper sizes, names, colors, and quantities
-    for (let i = 0; i < paperSizes.length; i++) {
-      for (let j = 0; j < paperNames.length; j++) {
-        for (let k = 0; k < colors.length; k++) {
-          for (let l = 0; l < quantities.length; l++) {
+    for (let i = 0; i < paperSizesArray.length; i++) {
+      for (let j = 0; j < paperNamesArray.length; j++) {
+        for (let k = 0; k < colorsArray.length; k++) {
+          for (let l = 0; l < quantitiesArray.length; l++) {
             // Calculate price based on paper size, name, color, and quantity
             let adjustedPrice = originalPrice; // Start with the original price
 
             // Apply price adjustments for different combinations
-            if (paperSizes[i] === 'A3') {
+            if (paperSizesArray[i] === 'A3') {
               adjustedPrice += 10; // Additional price for A3 paper size
             }
-            if (paperNames[j] === 'Glossy') {
+            if (paperNamesArray[j] === 'Glossy') {
               adjustedPrice += 5; // Additional price for glossy paper
             }
-            if (colors[k] === 'Black') {
+            if (colorsArray[k] === 'Black') {
               adjustedPrice += 2; // Additional price for black color
             }
 
             // Adjust price by multiplying by quantity at the end
-            let totalPrice = adjustedPrice * quantities[l]; // This is the correct logic
+            let totalPrice = adjustedPrice * quantitiesArray[l]; // This is the correct logic
 
             // Create a variation for this combination
             productVariations.push({
-              paperSize: paperSizes[i],
-              paperName: paperNames[j],
-              color: colors[k],
-              quantity: quantities[l],
+              paperSize: paperSizesArray[i],
+              paperName: paperNamesArray[j],
+              color: colorsArray[k],
+              quantity: quantitiesArray[l],
               price: totalPrice, // Store total price for this variation
             });
           }

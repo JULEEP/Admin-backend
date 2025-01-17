@@ -182,16 +182,66 @@ const getAllOrders = async (req, res) => {
 };
 
 
-const getOrderForAdmin = async(req, res) => {
+const getOrderForAdmin = async (req, res) => {
   try {
-    const orders = await Order.find();  // Example using MongoDB
+    // Fetch all orders from the database
+    const orders = await Order.find().sort({ createdAt: -1 }); // Optionally, sort by creation date
 
-    // Ensure the response is always an array
-    res.json(orders);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch orders', orders: [] });
+    // If no orders are found, return a 404 error
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ status: false, message: "No orders found" });
+    }
+
+    // Map through the orders and fetch product details for each order
+    const orderDetails = await Promise.all(
+      orders.map(async (order) => {
+        const products = await Promise.all(
+          order.products.map(async (item) => {
+            const product = await Product.findById(item.product?._id);
+            if (!product) {
+              throw new Error(`Product with ID ${item.product?._id} not found`);
+            }
+
+            return {
+              product: {
+                _id: product._id,
+                title: product.name,
+                price: product.originalPrice,
+                images: product.images,
+                templateImageUrl: product.templatesImages?.length
+                  ? product.templatesImages[product.templatesImages.length - 1].imageUrl
+                  : null, // Get the last imageUrl or null if no templatesImages
+              },
+              quantity: item.quantity,
+              _id: item._id,
+            };
+          })
+        );
+
+        return {
+          orderId: order._id,
+          order: products,
+          paymentIntent: {
+            amount: order.paymentIntent?.amount || 0, // Fallback to 0 if amount is undefined
+          },
+          orderStatus: order.orderStatus,
+          variationDetails: order.variationDetails || null, // Handle undefined variationDetails
+          deliveredIn: order.deliveredIn,
+        };
+      })
+    );
+
+    // Send the order details as a response
+    res.status(200).json({
+      status: true,
+      orders: orderDetails,
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ status: false, message: "Internal Server Error" });
   }
-}
+};
+
 
 const getOrderByUser = async (req, res) => {
   try {
