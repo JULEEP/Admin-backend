@@ -89,6 +89,13 @@ const orderSchema = new mongoose.Schema({
   cancelledAt: {
     type: Date
   },
+  variationId: { type: String },  // New field for variationId
+    variationDetails: {                              // New field for variation details
+      paperName: { type: String },
+      price: { type: Number },
+      paperSize: { type: String },
+      color: { type: String },
+    },
   orderStatus: {
     type: String,
     default: "Not Processed",  // Default status

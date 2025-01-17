@@ -37,7 +37,6 @@ const productSchema = new mongoose.Schema(
     quantity: {
       type: Number,
     },
-
     description: {
       type: String,
     },
@@ -45,12 +44,10 @@ const productSchema = new mongoose.Schema(
       type: String,
     },
     tag: [String],
-
     flashSale: {
       type: Boolean,
       default: false,
     },
-
     status: {
       type: String,
       default: 'Show',
@@ -62,60 +59,70 @@ const productSchema = new mongoose.Schema(
     addressText: String,
     name: { type: String, default: '' },
     category: { type: String, default: '' },
-    slug: { type: String, default: '' },
-    description: { type: String, default: '' },
     size: { type: String, default: '' },
     color: { type: String, default: '' },
     moq: { type: Number, default: 0 },  // Minimum Order Quantity (MOQ)
-    originalPrice: { type: Number, default: 0 },  // Original price of the product
     discountedPrice: { type: Number, default: 0 },  // Discounted price of the product
-    type: { type: String, default: '' }, // Assuming a type field (optional)
-    quantity: { type: Number, default: 0 },  // Quantity available (optional)
     children: { type: String, default: '' },  // Child categories or other relation (optional)
     parent: { type: String, default: '' },  // Parent category or relation (optional)
     unit: { type: String, default: '' }, // Unit of measurement (optional)
     images: [{ type: String }],  // Assuming the images will be file paths or URLs (optional)
-    myDesigns: [{type: String}], // Array of designs using the sub-schema
- ratings: [
-    {
-      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-      rating: { type: Number, required: true },
-      comment: { type: String, required: false },
-      createdAt: { type: Date, default: Date.now }, // If you are manually setting, this might override the default behavior
+    myDesigns: [{ type: String }], // Array of designs using the sub-schema
+    ratings: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        rating: { type: Number, required: true },
+        comment: { type: String, required: false },
+        createdAt: { type: Date, default: Date.now },
+      }
+    ],
+    generateCard: [
+      {
+        fileName: { type: String },
+        filePath: { type: String },
+        eventName: { type: String },
+        date: { type: String },
+        location: { type: String },
+        host: { type: String },
+        extractedText: { type: String },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
+    averageRating: { type: Number, default: 0 },
+    reviewCount: { type: Number, default: 0 },
+    templateUrl: { type: String }, // The URL of the template
 
-    }
-  ],
-  generateCard: [
-    {
-      fileName: { type: String }, // `required` removed
-      filePath: { type: String }, // `required` removed
-      eventName: { type: String }, // `required` removed
-      date: { type: String },     // `required` removed
-      location: { type: String }, // `required` removed
-      host: { type: String },     // `required` removed
-      extractedText: { type: String }, // Added this field to store extracted text
-      createdAt: { type: Date, default: Date.now }
-    }
-  ],
-  name: { type: String, default: '' },
-  category: { type: String, default: '' },
-  slug: { type: String, default: '' },
-  description: { type: String, default: '' },
-  size: { type: String, default: '' },
-  color: { type: String, default: '' },
-  moq: { type: Number, default: 0 },
-  originalPrice: { type: Number, default: 0 },
-  discountedPrice: { type: Number, default: 0 },
-  type: { type: String, default: '' },
-  quantity: { type: Number, default: 0 },
-  unit: { type: String, default: '' },
-  subcategory: { type: String, default: '' }, // New subcategory field
-  images: { type: [String], default: [] }, // To store Cloudinary image URLs
-  averageRating: { type: Number, default: 0 },
-  reviewCount: { type: Number, default: 0 },
+    // Paper Sizes, Names, Quantities, and Colors - Arrays
+    paperSizes: [{ type: String }],
+    paperNames: [{ type: String }],
+    colors: [{ type: String }],
+
+    // Calculated Product Variations with dynamic prices
+    variations: [
+      {
+        paperSize: { type: String },
+        paperName: { type: String },
+        color: { type: String },
+        quantity: { type: Number },
+        price: { type: Number }, // Dynamic price
+      }
+    ],
+
+    templatesImages: [
+      {
+        imageUrl: { type: String },
+        createdAt: { type: Date, default: Date.now },
+      }
+    ],
+    templates: [
+      {
+        url: { type: String, required: true },
+        public_id: { type: String, required: true },
+        isTemplate: { type: Boolean, default: false },
+      },
+    ], // Array to store template details
 
   },
-
   {
     timestamps: true,
   }

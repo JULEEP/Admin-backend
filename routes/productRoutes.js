@@ -63,11 +63,12 @@ router.post('/rate/:userId', submitRating);
 router.get('/ratings/:id', getProductRatings);
 router.post('/generate', generateInvitation);
 //router.put('/update', updateInvitation);
-router.post('/upload', upload.array('logoImage'), uploadFile);
+router.post('/upload-template/:id', upload.single('template'), uploadTemplate);
+router.post('/upload/:productId', upload.array('logoImage'), uploadFile);
+
 //router.post("/update", updateImageText);
 router.get('/image/:id', getImage);
-router.post('/upload-template', upload.single('template'), uploadTemplate);
-router.get('/get-templates', getTemplates);
+router.get('/get-templates/:productId', getTemplates);
 
 
 

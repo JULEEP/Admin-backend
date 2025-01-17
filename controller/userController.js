@@ -326,187 +326,169 @@ const deleteUser = (req, res) => {
 const userCart = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { quantity, productId, action } = req.body;
+    const { quantity, productId, variationId, action } = req.body;
 
-    // Fetch the user document
+    // Fetch the user
     const user = await User.findById(userId);
-
-    // Check if the user exists
     if (!user) {
       return res.status(400).json({ status: false, message: "Invalid user ID" });
     }
 
-    // Validate the product ID
     if (!productId) {
       return res.status(400).json({ status: false, message: "Invalid product ID" });
     }
 
-    // Fetch the cart for the user
+    // Fetch or create the user's cart
     let cart = await Cart.findOne({ userId });
-
-    // If cart doesn't exist, create a new one
     if (!cart) {
       cart = new Cart({ userId, products: [] });
     }
 
-    // Find the product item in the cart
-    let productItem = cart.products.find(item => item.product && item.product.equals(productId));
+    // Fetch the product
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(400).json({ status: false, message: "Product not found" });
+    }
 
+    let variationDetails = null;
+    let variationPrice = product.originalPrice;
+
+    // Fetch variation details if variationId is provided
+    if (variationId) {
+      const variation = product.variations.find(v => v._id.toString() === variationId.toString());
+      if (!variation) {
+        return res.status(400).json({ status: false, message: "Variation not found" });
+      }
+      variationPrice = variation.price;
+      variationDetails = {
+        paperName: variation.paperName,
+        price: variation.price,
+        paperSize: variation.paperSize,
+        color: variation.color,
+      };
+    }
+
+    cart.variationId = variationId; // Save variationId
+    cart.variationDetails = variationDetails; // Save expanded variation details
+
+    // Check if the product is already in the cart
+    let productItem = cart.products.find(item => item.product.equals(productId));
     if (productItem) {
-      // If product found in the cart
+      // Update quantity based on action
       if (action === 'increment') {
-        // Increment the quantity by 1
-        productItem.quantity += 1;
+        productItem.quantity += quantity;
       } else if (action === 'decrement') {
-        // Decrement the quantity by 1
-        if (productItem.quantity > 0) {
-          productItem.quantity -= 1;
-
-          // If quantity reaches zero, remove the product from the cart
-          if (productItem.quantity === 0) {
-            cart.products = cart.products.filter(item => item.product && !item.product.equals(productId));
-          }
-        } else {
-          return res.status(400).json({ status: false, message: "Quantity cannot be negative" });
+        productItem.quantity -= quantity;
+        if (productItem.quantity <= 0) {
+          cart.products = cart.products.filter(item => !item.product.equals(productId));
         }
-      } else {
-        return res.status(400).json({ status: false, message: "Invalid action" });
       }
     } else {
-      // If product is not found in the cart, add it as a new product
-      const product = await Product.findById(productId);
-      if (!product) {
-        return res.status(400).json({ status: false, message: "Product not found" });
-      }
-
-      // Add new product to the cart with the given quantity
-      cart.products.push({ product: productId, quantity });
-
-      // Update the isInCart field to true
-      await Product.findByIdAndUpdate(productId, { isInCart: true }, { new: true });
+      // Add the product with its variation to the cart
+      cart.products.push({
+        product: productId,
+        quantity,
+        price: variationPrice,
+      });
     }
 
-    // Populate the product field in each productItem
-    await Cart.populate(cart, { path: 'products.product', select: 'name originalPrice images isInCart' });
-
-    // Calculate the subtotal and cartTotal
+    // Calculate totals
     let subTotal = 0;
-    for (let item of cart.products) {
-      if (item.product) {
-        subTotal += item.product.originalPrice * item.quantity;
-      }
-    }
+    cart.products.forEach(item => {
+      subTotal += item.price * item.quantity;
+    });
 
-    // Update the subtotal and cartTotal in the cart
     cart.subTotal = subTotal;
-    cart.cartTotal = subTotal; // Assuming cartTotal is the same as subTotal for now
+    cart.cartTotal = subTotal;
 
-    // Save the updated cart
+    // Save the cart
     await cart.save();
 
-    // Ensure the user.cart array is updated properly
-    if (!user.cart.includes(productId)) {
-      user.cart.push(productId);
-    }
+    // Populate product details for response
+    await cart.populate({ path: 'products.product', select: 'name originalPrice images' });
 
-    // Save the updated user document
-    await user.save();
-
-    // Fetch the specific product details being updated
-    const updatedProduct = await Product.findById(productId);
-    if (!updatedProduct) {
-      return res.status(400).json({ status: false, message: "Updated product not found" });
-    }
-
-    // Return the updated cart with details for the specific product only
     return res.status(200).json({
       status: true,
-      message: "Product updated in cart",
-      product: {
-        name: updatedProduct.name, // Replaced title with name
-        quantity: cart.products.find(item => item.product && item.product.equals(productId))?.quantity || 0,
-        originalPrice: updatedProduct.originalPrice, // Replaced price with originalPrice
-        images: updatedProduct.images,
-        isInCart: updatedProduct.isInCart,
+      message: "Cart updated successfully",
+      cart: {
+        _id: cart._id,
+        userId: cart.userId,
+        products: cart.products.map(item => ({
+          _id: item._id,
+          product: item.product,
+          quantity: item.quantity,
+          price: item.price,
+          images: item.product?.images || [],
+        })),
+        variationId: cart.variationId,
+        variationDetails: cart.variationDetails,
+        subTotal: cart.subTotal,
+        cartTotal: cart.cartTotal,
       },
-      subTotal,
-      cartTotal: cart.cartTotal,
     });
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: false, message: "Internal Server Error" });
+    res.status(500).json({ status: false, message: "Internal server error" });
   }
 };
 
-//get cart 
-const getCart = (async (req, res) => {
+
+
+
+
+const getCart = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Find the user's cart by userId and populate the products
-    const cart = await Cart.findOne({ userId })
-      .populate({
-        path: 'products.product',
-        select: 'name originalPrice description images category'
-      });
+    // Find the user's cart by userId
+    const cart = await Cart.findOne({ userId }).populate({
+      path: 'products.product',
+      select: 'name originalPrice images', // Fetch only necessary fields for products
+    });
 
     if (!cart) {
       return res.status(200).json({
         status: true,
         cart: [],
-        cartTotal: 0,
-        subTotal: 0,
       });
     }
 
-    // Filter out invalid products (null or undefined)
-    const validProducts = cart.products.filter(item => item.product !== null);
-
-    // Calculate cartTotal and subTotal
-    let cartTotal = 0;
-    let subTotal = 0;
-    const cartDetails = validProducts.map(item => {
-      const product = item.product;
-
-      // Ensure the product is not null or undefined
-      if (!product) {
-        return null;
-      }
-
-      const itemTotal = product.originalPrice * item.quantity;
-      cartTotal += itemTotal;
-      subTotal += itemTotal;
-      return {
-        product: product._id,
-        title: product.name,
-        price: product.originalPrice,
-        description: product.description,
-        images: product.images,
-        category: product.category,
-        quantity: item.quantity,
-        itemTotal,
-      };
-    }).filter(item => item !== null); // Filter out any null items
-
-    // Update the cart if necessary
-    if (cart.products.length !== validProducts.length) {
-      cart.products = validProducts;
-      await cart.save();
-    }
-
-    // Respond with the cart data
+    // Return the cart along with variationDetails and other fields
     res.status(200).json({
       status: true,
-      cart: cartDetails,
-      cartTotal,
-      subTotal,
+      cart: {
+        _id: cart._id,
+        userId: cart.userId,
+        products: cart.products.map(product => ({
+          _id: product._id,
+          product: product.product, // Includes populated product details
+          quantity: product.quantity,
+          price: product.price,
+          images: product.product?.images || [],
+        })),
+        variationId: cart.variationId,
+        variationDetails: cart.variationDetails
+          ? {
+              paperName: cart.variationDetails.paperName,
+              price: cart.variationDetails.price,
+              paperSize: cart.variationDetails.paperSize,
+              color: cart.variationDetails.color,
+            }
+          : null, // Include variation details or null if not present
+        subTotal: cart.subTotal,
+        cartTotal: cart.cartTotal,
+      },
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: false, error: 'Internal server error' });
   }
-});
+};
+
+
+
+
 
 //delete cart
 const deleteCartItem = (async (req, res) => {

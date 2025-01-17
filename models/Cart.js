@@ -32,8 +32,24 @@ const cartSchema = new mongoose.Schema({
         type: String, // Storing the custom design as a base64 string
         default: null,
       },
+
     },
   ],
+  variationId: { type: String }, // Change variationId to a string
+  variationId: {
+    type: String, // Keep variationId as a string for reference
+  },
+  variationDetails: {
+    paperName: {
+      type: String,
+    },
+    price: {
+      type: Number,
+    },
+    paperSize: {
+      type: String,
+    },
+  },
   cartTotal: { type: Number },
   subTotal: { type: Number },
 });

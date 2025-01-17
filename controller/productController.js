@@ -15,8 +15,80 @@ const cloudinary = require('../config/cloudinary')
 
 const addProduct = async (req, res) => {
   try {
-    const { name, category, slug, description, size, color, moq, originalPrice, discountedPrice, type, quantity, unit, subcategory, images } = req.body;
+    const { 
+      name, 
+      category, 
+      slug, 
+      description, 
+      size, 
+      color, 
+      moq, 
+      originalPrice, 
+      discountedPrice, 
+      type, 
+      quantity, 
+      unit, 
+      subcategory, 
+      images, 
+      paperSizes = [], // Default to an empty array if not provided
+      paperNames = [], // Default to an empty array if not provided
+      colors = [], // Default to an empty array if not provided
+      quantities = [], // Default to an empty array if not provided
+    } = req.body;
 
+    // Check if required arrays are provided and are non-empty
+    if (!Array.isArray(paperSizes) || paperSizes.length === 0) {
+      return res.status(400).json({ message: 'Paper sizes must be provided as a non-empty array.' });
+    }
+    if (!Array.isArray(paperNames) || paperNames.length === 0) {
+      return res.status(400).json({ message: 'Paper names must be provided as a non-empty array.' });
+    }
+    if (!Array.isArray(colors) || colors.length === 0) {
+      return res.status(400).json({ message: 'Colors must be provided as a non-empty array.' });
+    }
+    if (!Array.isArray(quantities) || quantities.length === 0) {
+      return res.status(400).json({ message: 'Quantities must be provided as a non-empty array.' });
+    }
+
+    // Array to hold all product variations
+    let productVariations = [];
+
+    // Loop through all combinations of paper sizes, names, colors, and quantities
+    for (let i = 0; i < paperSizes.length; i++) {
+      for (let j = 0; j < paperNames.length; j++) {
+        for (let k = 0; k < colors.length; k++) {
+          for (let l = 0; l < quantities.length; l++) {
+            // Calculate price based on paper size, name, color, and quantity
+            let adjustedPrice = originalPrice; // Start with the original price
+
+            // Apply price adjustments for different combinations
+            if (paperSizes[i] === 'A3') {
+              adjustedPrice += 10; // Additional price for A3 paper size
+            }
+            if (paperNames[j] === 'Glossy') {
+              adjustedPrice += 5; // Additional price for glossy paper
+            }
+            if (colors[k] === 'Black') {
+              adjustedPrice += 2; // Additional price for black color
+            }
+
+            // Adjust price by multiplying by quantity at the end
+            let totalPrice = adjustedPrice * quantities[l]; // This is the correct logic
+
+            // Create a variation for this combination
+            productVariations.push({
+              paperSize: paperSizes[i],
+              paperName: paperNames[j],
+              color: colors[k],
+              quantity: quantities[l],
+              price: totalPrice, // Store total price for this variation
+            });
+          }
+        }
+      }
+    }
+
+    // Create the product with variations
     const newProduct = new Product({
       name: name || '',
       category: category || '',
@@ -31,7 +103,8 @@ const addProduct = async (req, res) => {
       quantity: quantity || 0,
       unit: unit || '',
       subcategory: subcategory || '', // Add subcategory
-      images: []
+      images: [], // Assuming image handling will be done separately
+      variations: productVariations, // Store product variations
     });
 
     // Handle image uploads to Cloudinary
@@ -969,84 +1042,166 @@ const addTextToImage = async (filePath, outputPath, textFields) => {
 
 const uploadFile = async (req, res) => {
   try {
-    const { nameText, month, contactNumber, year, templateUrl } = req.body; // Get form data
-    let images = req.files; // Get uploaded files (we expect templateImage in the URL)
-    const logoImage = req.files.logoImage ? req.files.logoImage[0] : null; // Optional logo image
+    const { nameText, month, contactNumber, year, templateUrl, hindiText } = req.body; // Get form data, including dynamic Hindi text
+    const logoImage = req.files?.logoImage ? req.files.logoImage[0] : null; // Optional logo image
+    const { productId } = req.params; // Get productId from the request parameters
 
     if (!templateUrl) {
-      return res.status(400).json({ error: 'No template image URL provided' });
+      return res.status(400).json({ error: "No template image URL provided" });
+    }
+
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
+    // Find the existing product by productId
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    // Ensure the template URL is valid
+    const template = product.templates.find(t => t.url === templateUrl);
+    if (!template) {
+      return res.status(404).json({ error: "Template URL not found in product" });
     }
 
     const transformations = [];
 
-    // Apply text overlays for fields dynamically
+    // Apply nameText with bold red style at the top (Handle Hindi Text)
+    if (nameText) {
+      transformations.push({
+        overlay: {
+          text: nameText,
+          font_family: "Arial", // Ensure font supports Hindi characters
+          font_size: 60,
+          font_weight: "bold", // Bold font
+        },
+        color: "red", // Red color
+        gravity: "north", // Position text at the top
+        y: 70, // Adjust the vertical position
+      });
+    }
+
+    // Apply text overlays for other fields dynamically with line breaks and multiple parts
     const overlayFields = [
-      { text: nameText, y: 30 },
-      { text: contactNumber, y: 80 },
-      { text: month, y: 130 },
-      { text: year, y: 180 },
+      { text: contactNumber, y: 130 },
+      { text: month, y: 180 },
+      { text: year, y: 230 },
     ];
 
     overlayFields.forEach(field => {
       if (field.text) {
         transformations.push({
           overlay: {
+            text: field.text, // Directly pass text here
             font_family: "Arial",
             font_size: 40,
-            text: field.text, // Dynamic text field
           },
-          color: "#000000", // Text color
+          color: "black", // Text color
           gravity: "south", // Position text at the bottom
           y: field.y, // Dynamic vertical offset
         });
       }
     });
 
-    // Apply logo overlay if logo image is uploaded
-    if (logoImage) {
-      // Upload the logo image to Cloudinary first
-      const logoResponse = await cloudinary.uploader.upload(logoImage.path, {
-        upload_preset: 'custom', // Your preset for Cloudinary upload
+    // Handling longer Hindi text with line breaks dynamically (now dynamic from req.body)
+    const splitText = (text, lineHeight) => {
+      const lines = [];
+      const words = text.split(" "); // Split text into words
+
+      let line = "";
+      words.forEach((word, index) => {
+        if (line.length + word.length > 30) {
+          lines.push(line); // Push current line
+          line = word; // Start new line
+        } else {
+          line += (line ? " " : "") + word;
+        }
+
+        // If it's the last word, push the remaining line
+        if (index === words.length - 1) lines.push(line);
       });
 
-      // Add the logo as an overlay with the retrieved public_id
-      transformations.push({
-        overlay: {
-          public_id: logoResponse.public_id, // Logo public_id for overlay
-          width: 200, // Adjust width and height as necessary
-          height: 100,
-        },
-        gravity: "north", // Position logo at the top
-        y: 10, // Offset for logo
+      return lines;
+    };
+
+    // Decode hindiText (if it's URL-encoded)
+    if (hindiText) {
+      const decodedHindiText = decodeURIComponent(hindiText); // Decode the URL-encoded Hindi text
+      const lines = splitText(decodedHindiText, 60); // Adjust line length based on requirements
+
+      // Add Hindi text to transformations with color changes
+      lines.forEach((line, index) => {
+        transformations.push({
+          overlay: {
+            text: line,
+            font_family: "Arial", // Ensure font supports Hindi characters
+            font_size: 50,
+          },
+          color: index === 0 ? "black" : "red", // First line black, subsequent red
+          gravity: "north",
+          y: 280 + (index * 60), // Adjust vertical spacing between lines
+        });
       });
     }
 
-    // Apply transformations to the template image
+    // Apply logo overlay if logo image is uploaded (Optional)
+    if (logoImage) {
+      const logoResponse = await cloudinary.uploader.upload(logoImage.path, {
+        upload_preset: 'custom',
+      });
+
+      transformations.push({
+        overlay: {
+          public_id: logoResponse.public_id, // Logo public_id for overlay
+          width: 200,
+          height: 100,
+        },
+        gravity: "north", // Position logo at the top
+        y: 10,
+      });
+    }
+
+    // Log before applying transformations
+    console.log("Applying Transformations:", transformations);
+
+    // Apply transformations directly using Cloudinary's upload API
     const finalImageResponse = await cloudinary.uploader.upload(templateUrl, {
-      upload_preset: 'custom', // Your preset for Cloudinary upload
-      transformation: transformations, // Apply dynamic transformations
+      upload_preset: 'custom',
+      transformation: transformations, // Apply transformations directly
     });
 
-    // Save the final image URL and metadata to the database
-    const product = new Image({
-      images: [finalImageResponse.secure_url], // Store the transformed image URL
-      nameText, // Store nameText
-      templateUrl, // Store the URL of the template image
+    // Log the final image response to check if the text overlay is applied
+    console.log("Final Image Response:", finalImageResponse);
+
+    // If transformations are applied, we should see changes in the URL
+    if (!finalImageResponse || !finalImageResponse.secure_url) {
+      return res.status(500).json({
+        success: false,
+        message: "Transformation failed. No transformed image returned.",
+      });
+    }
+
+    // Add the transformed template image URL to the templatesImages[] array
+    product.templatesImages.push({
+      imageUrl: finalImageResponse.secure_url, // Store the transformed image URL
     });
 
-    await product.save(); // Save the product to the database
+    await product.save(); // Save the updated product with the new template image
 
+    // Return success response with the updated image URL only
     res.status(201).json({
       success: true,
-      message: 'Product Created Successfully with Text Overlay',
-      product, // Return the saved product object
+      message: "Product Updated Successfully with Image Overlay",
+      imageUrl: finalImageResponse.secure_url, // Send only the transformed image URL
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error in updating product with image overlay:", error);
     res.status(500).json({
       success: false,
       error: error.message,
-      message: 'Error in creating product',
+      message: "Error in updating product with image overlay",
     });
   }
 };
@@ -1054,10 +1209,21 @@ const uploadFile = async (req, res) => {
 
 
 
-// Upload a new template to Cloudinary
+
+
+
+
+
+
+// Upload a new template to Cloudinary and associate it with a product
 const uploadTemplate = async (req, res) => {
   try {
+    const { id } = req.params; // Extract productId from request parameters
     const file = req.file; // Uploaded file
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'Product ID is required' });
+    }
 
     if (!file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
@@ -1069,18 +1235,28 @@ const uploadTemplate = async (req, res) => {
       folder: 'templates', // Optional: store in a specific folder
     });
 
-    // Save the template details in the database
-    const newTemplate = new Image({
+    // Save the template details
+    const newTemplate = {
       url: uploadResponse.secure_url,
       public_id: uploadResponse.public_id,
       isTemplate: true, // Mark as a template
-    });
+    };
 
-    await newTemplate.save();
+    // Find the product by ID and update its templates array
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Product not found' });
+    }
+
+    product.templates = product.templates || []; // Ensure templates array exists
+    product.templates.push(newTemplate); // Add the new template
+
+    await product.save(); // Save the updated product
 
     res.status(201).json({
       success: true,
-      message: 'Template uploaded successfully!',
+      message: 'Template uploaded and associated with the product successfully!',
       template: newTemplate,
     });
   } catch (error) {
@@ -1092,6 +1268,7 @@ const uploadTemplate = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -1186,24 +1363,68 @@ const getImage = async (req, res) => {
   }
 };
 
-// Fetch all templates
 const getTemplates = async (req, res) => {
   try {
-    // Find all templates with the `isTemplate` flag set to true
-    const templates = await Image.find({ isTemplate: true });
+    const { id } = req.params; // Extract productId from request parameters
 
-    if (!templates || templates.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'No templates found',
+    if (id) {
+      // Fetch templates associated with a specific product
+      const product = await Product.findById(id).select('templates');
+      
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found',
+        });
+      }
+
+      if (!product.templates || product.templates.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No templates found for this product',
+        });
+      }
+
+      // Return the templates associated with the product
+      return res.status(200).json({
+        success: true,
+        message: 'Templates fetched successfully',
+        templates: product.templates,
+      });
+    } else {
+      // Fetch all templates (from both Image collection and products)
+      const imageTemplates = await Image.find({ isTemplate: true });
+      const productTemplates = await Product.aggregate([
+        {
+          $match: { 'templates': { $exists: true, $not: { $size: 0 } } }, // Ensure templates array exists and is not empty
+        },
+        {
+          $project: {
+            templates: 1, // Only return templates
+          },
+        },
+      ]);
+
+      // Combine both sources of templates
+      const allTemplates = [
+        ...imageTemplates,
+        ...productTemplates.flatMap(product => product.templates),
+      ];
+
+      if (allTemplates.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No templates found',
+        });
+      }
+
+      // Return all templates
+      return res.status(200).json({
+        success: true,
+        message: 'Templates fetched successfully',
+        templates: allTemplates,
       });
     }
-
-    res.status(200).json({
-      success: true,
-      message: 'Templates fetched successfully',
-      templates,
-    });
   } catch (error) {
     console.error('Error fetching templates:', error.message);
     res.status(500).json({
@@ -1213,6 +1434,7 @@ const getTemplates = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   addProduct,
