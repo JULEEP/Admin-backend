@@ -13,6 +13,7 @@ const cloudinary = require('../config/cloudinary')
 
 
 
+
 const addProduct = async (req, res) => {
   try {
     const { 
@@ -1225,6 +1226,114 @@ const uploadFile = async (req, res) => {
 };
 
 
+const uploadFileForGst = async (req, res) => {
+  try {
+    const { billNumber, name, gstNumber, address, companyName, templateUrl } = req.body;
+    const { productId } = req.params;
+
+    if (!templateUrl) {
+      return res.status(400).json({ error: "No template image URL provided" });
+    }
+
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const template = product.templates.find(t => t.url === templateUrl);
+    if (!template) {
+      return res.status(404).json({ error: "Template URL not found in product" });
+    }
+
+    const transformations = [];
+
+    // Company Name (Top Left)
+    if (companyName) {
+      transformations.push({
+        overlay: { text: companyName, font_family: "Arial", font_size: 50 },
+        color: "white",
+        gravity: "north_west",
+        x: 50,
+        y: 50,
+      });
+    }
+
+    // Bill Number (Top Right)
+    if (billNumber) {
+      transformations.push({
+        overlay: { text: billNumber, font_family: "Arial", font_size: 30 },
+        color: "black",
+        gravity: "north_east",
+        x: 50,
+        y: 300,
+      });
+    }
+
+    // Name (Below Company Name)
+    if (name) {
+      transformations.push({
+        overlay: { text: name, font_family: "Arial", font_size: 30 },
+        color: "black",
+        gravity: "north_west",
+        x: 280,
+        y: 350,
+      });
+    }
+
+    // GST Number (Below Name)
+    if (gstNumber) {
+      transformations.push({
+        overlay: { text: gstNumber, font_family: "Arial", font_size: 30 },
+        color: "black",
+        gravity: "north_west",
+        x: 210,
+        y: 400,
+      });
+    }
+
+ // GST Number (Below Name)
+ if (address) {
+  transformations.push({
+    overlay: { text: address, font_family: "Arial", font_size: 30 },
+    color: "blue",
+    gravity: "north_east",
+    x: 210,
+    y: 400,
+  });
+}
+
+
+    console.log("Applying Transformations:", transformations);
+
+    const finalImageResponse = await cloudinary.uploader.upload(templateUrl, {
+      upload_preset: 'custom',
+      transformation: transformations,
+    });
+
+    if (!finalImageResponse || !finalImageResponse.secure_url) {
+      return res.status(500).json({
+        success: false,
+        message: "Transformation failed. No transformed image returned.",
+      });
+    }
+
+    product.templatesImages.push({ imageUrl: finalImageResponse.secure_url });
+    await product.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Product Updated Successfully with Image Overlay",
+      imageUrl: finalImageResponse.secure_url,
+    });
+  } catch (error) {
+    console.error("Error in updating product with image overlay:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
 
 
 
@@ -1233,13 +1342,15 @@ const uploadFile = async (req, res) => {
 
 
 
-// Upload a new template to Cloudinary and associate it with a product
+
+
+
 const uploadTemplate = async (req, res) => {
   try {
-    const { id } = req.params; // Extract productId from request parameters
+    const { productId } = req.params; // Extract productId from request parameters
     const file = req.file; // Uploaded file
 
-    if (!id) {
+    if (!productId) {
       return res.status(400).json({ success: false, message: 'Product ID is required' });
     }
 
@@ -1247,8 +1358,9 @@ const uploadTemplate = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    // Upload the template to Cloudinary
+    // Upload the template (PDF or Image) to Cloudinary
     const uploadResponse = await cloudinary.uploader.upload(file.path, {
+      resource_type: 'raw', // Allows PDF upload
       upload_preset: 'custom', // Your Cloudinary upload preset
       folder: 'templates', // Optional: store in a specific folder
     });
@@ -1258,10 +1370,11 @@ const uploadTemplate = async (req, res) => {
       url: uploadResponse.secure_url,
       public_id: uploadResponse.public_id,
       isTemplate: true, // Mark as a template
+      format: uploadResponse.format, // Store format for reference
     };
 
     // Find the product by ID and update its templates array
-    const product = await Product.findById(id);
+    const product = await Product.findById(productId);
 
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
@@ -1274,7 +1387,7 @@ const uploadTemplate = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Template uploaded and associated with the product successfully!',
+      message: 'Template (PDF/Image) uploaded and associated with the product successfully!',
       template: newTemplate,
     });
   } catch (error) {
@@ -1286,6 +1399,7 @@ const uploadTemplate = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -1383,12 +1497,12 @@ const getImage = async (req, res) => {
 
 const getTemplates = async (req, res) => {
   try {
-    const { id } = req.params; // Extract productId from request parameters
+    const { productId } = req.params; // Extract productId from request parameters
 
-    if (id) {
+    if (productId) {
       // Fetch templates associated with a specific product
-      const product = await Product.findById(id).select('templates');
-      
+      const product = await Product.findById(productId).select('templates');
+
       if (!product) {
         return res.status(404).json({
           success: false,
@@ -1429,7 +1543,11 @@ const getTemplates = async (req, res) => {
         ...productTemplates.flatMap(product => product.templates),
       ];
 
-      if (allTemplates.length === 0) {
+      // Remove duplicates (optional, if needed)
+      const uniqueTemplates = Array.from(new Set(allTemplates.map(a => a._id)))
+        .map(id => allTemplates.find(a => a._id === id));
+
+      if (uniqueTemplates.length === 0) {
         return res.status(404).json({
           success: false,
           message: 'No templates found',
@@ -1440,7 +1558,7 @@ const getTemplates = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: 'Templates fetched successfully',
-        templates: allTemplates,
+        templates: uniqueTemplates,
       });
     }
   } catch (error) {
@@ -1452,6 +1570,76 @@ const getTemplates = async (req, res) => {
     });
   }
 };
+
+const saveTemplate = async (req, res) => {
+  const { image, productId } = req.body; // Expecting base64 image data and productId
+
+  // Ensure both image and productId are provided
+  if (!image || !productId) {
+    return res.status(400).json({ success: false, message: "Missing data" });
+  }
+
+  // Validate the productId (ensure it's a valid ObjectId)
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return res.status(400).json({ success: false, message: "Invalid productId" });
+  }
+
+  try {
+    // Log the request data for debugging
+    console.log("Request Data: ", req.body);
+
+    // Extract base64 image data from the incoming string
+    const matches = image.match(/^data:image\/([a-zA-Z]*);base64,([^\"]*)/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ success: false, message: "Invalid image data" });
+    }
+
+    console.log("Base64 Matches:", matches); // Log for debugging
+
+    // Extract base64 encoded image
+    const base64Image = matches[2];
+
+    // Upload the image to Cloudinary using the base64 string directly
+    const result = await cloudinary.uploader.upload(`data:image/png;base64,${base64Image}`, {
+      resource_type: 'image', // Image type
+      upload_preset: 'custom', // Cloudinary upload preset
+      folder: 'templates', // Optional: Store in a specific folder in Cloudinary
+    });
+
+    console.log("Cloudinary Upload Result:", result); // Log the result from Cloudinary
+
+    // Find the product by its ID
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    // Save the Cloudinary URL to the product document
+    product.templateUrl = result.secure_url;
+
+    // Save the updated product
+    await product.save();
+
+    // Respond with success and the template URL
+    res.status(200).json({
+      success: true,
+      message: "Template saved successfully",
+      templateUrl: result.secure_url, // Return the Cloudinary URL
+    });
+
+  } catch (err) {
+    console.error("Error uploading to Cloudinary:", err);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred while uploading to Cloudinary",
+    });
+  }
+};
+
+
+
+
+
 
 
 module.exports = {
@@ -1487,5 +1675,7 @@ module.exports = {
   updateTextFields,
   getImage,
   uploadTemplate,
-  getTemplates
+  getTemplates,
+  uploadFileForGst,
+  saveTemplate
 };

@@ -36,7 +36,9 @@ const {
   updateImageText,
   uploadTemplate,
   getTemplates,
-  getAllProductsByCategorySchool
+  getAllProductsByCategorySchool,
+  uploadFileForGst,
+  saveTemplate
 } = require('../controller/productController');
 const multer = require('multer');
 
@@ -65,12 +67,16 @@ router.post('/rate/:userId', submitRating);
 router.get('/ratings/:id', getProductRatings);
 router.post('/generate', generateInvitation);
 //router.put('/update', updateInvitation);
-router.post('/upload-template/:id', upload.single('template'), uploadTemplate);
+router.post('/upload-template/:productId', upload.single('template'), uploadTemplate);
 router.post('/upload/:productId', upload.array('logoImage'), uploadFile);
+router.post('/upload-billbook/:productId', upload.array('logoImage'), uploadFileForGst);
+
 
 //router.post("/update", updateImageText);
 router.get('/image/:id', getImage);
 router.get('/get-templates/:productId', getTemplates);
+router.post("/save-template", saveTemplate);
+
 
 
 
